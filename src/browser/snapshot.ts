@@ -13,8 +13,9 @@ async function measureSource(): Promise<string> {
 interface MeasureResult { boxes: Box[]; scrollWidth: number; clientWidth: number; error?: string }
 
 /** Measures every visual box on the page. Works with any adapter: the script is evaluated as a string. */
-export async function captureSnapshot(page: DriverPage, info: { url: string; viewport: number }, exclude: string[]): Promise<Snapshot> {
-  const options = { exclude, react: page.capabilities.mainWorld };
+/** keep: leave each box's element on the page for the contrast pass (captureContrast). */
+export async function captureSnapshot(page: DriverPage, info: { url: string; viewport: number }, exclude: string[], keep = false): Promise<Snapshot> {
+  const options = { exclude, react: page.capabilities.mainWorld, keep };
   const result = await page.evaluate<MeasureResult>(`(${await measureSource()})(${JSON.stringify(options)})`);
   if (result.error) throw new UilintError(result.error);
   return {

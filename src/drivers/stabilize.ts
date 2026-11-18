@@ -26,12 +26,12 @@ function firstDifference(prev: Snapshot, next: Snapshot): string {
 }
 
 /** Measures every 100ms until two consecutive snapshots match. */
-export async function stableSnapshot(page: DriverPage, info: { url: string; viewport: number }, exclude: string[], timeoutMs: number): Promise<Snapshot> {
+export async function stableSnapshot(page: DriverPage, info: { url: string; viewport: number }, exclude: string[], timeoutMs: number, keep = false): Promise<Snapshot> {
   const deadline = Date.now() + timeoutMs;
-  let prev = await captureSnapshot(page, info, exclude);
+  let prev = await captureSnapshot(page, info, exclude, keep);
   for (;;) {
     await sleep(100);
-    const next = await captureSnapshot(page, info, exclude);
+    const next = await captureSnapshot(page, info, exclude, keep);
     if (JSON.stringify(next) === JSON.stringify(prev)) return next;
     if (Date.now() >= deadline) {
       throw new UilintError(`layout did not settle within ${timeoutMs}ms; still changing: ${firstDifference(prev, next)}`);

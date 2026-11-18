@@ -1,6 +1,6 @@
 export type Severity = 'off' | 'warn' | 'error';
 export type ActiveSeverity = Exclude<Severity, 'off'>;
-export type RuleName = 'alignment' | 'spacing' | 'size-consistency' | 'overflow';
+export type RuleName = 'alignment' | 'spacing' | 'size-consistency' | 'overflow' | 'contrast';
 
 /** Document coordinates, CSS px. */
 export interface Rect { x: number; y: number; width: number; height: number }
@@ -8,6 +8,31 @@ export interface Rect { x: number; y: number; width: number; height: number }
 export type BoxKind = 'text' | 'media' | 'control' | 'surface';
 
 export interface Locator { selector: string; text: string | null; components: string[]; source: string | null }
+
+/** Why the background behind some text couldn't be known. */
+export type Unverified =
+  | 'image' | 'gradient' | 'gradient text' | 'video' | 'canvas' | 'embedded content'
+  | 'backdrop-filter' | 'blend mode' | 'filter' | 'hidden';
+
+/** Text against what is painted behind it, at one sample point. */
+export interface ContrastSample {
+  /** text: ordinary text; value / placeholder: what a form control shows. */
+  what: 'text' | 'value' | 'placeholder';
+  ratio: number;
+  large: boolean;
+  /** #rrggbb as seen, after compositing. */
+  fg: string;
+  bg: string;
+  /** The background is a gradient; bg is its worst stop. */
+  gradient: boolean;
+}
+
+export interface ContrastInfo {
+  /** Document order, at most 32. */
+  samples: ContrastSample[];
+  /** Why some samples couldn't be measured; null if all were. */
+  unverified: Unverified | null;
+}
 
 export interface Box {
   /** Document order, 0-based. */
@@ -35,6 +60,8 @@ export interface Box {
   clipped: { x: number; y: number } | null;
   ellipsis: boolean;
   locator: Locator;
+  /** Text boxes and text-showing form controls, only when the contrast pass ran. */
+  contrast?: ContrastInfo;
 }
 
 export interface PageInfo {

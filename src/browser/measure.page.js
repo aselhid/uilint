@@ -344,5 +344,12 @@
     };
   });
 
+  // For the contrast pass, which runs later in its own evaluate and addresses boxes by id.
+  if (options.keep) {
+    window.__uilintBoxes = built.map((b) => b.e.type === 'el'
+      ? { el: b.e.el, nodes: null, clip: null }
+      : { el: b.e.owner, nodes: b.e.nodes, clip: b.e.clipEl ? paddingBox(b.e.clipEl) : null });
+  }
+
   return { boxes, scrollWidth: docEl.scrollWidth, clientWidth: docEl.clientWidth };
 }
