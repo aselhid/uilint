@@ -14,6 +14,7 @@ export function box(o: { x: number; y: number; w: number; h: number } & Partial<
     id,
     kind: 'surface',
     layoutRect: rect,
+    innerRect: rect,
     lines: [],
     baseline: null,
     textAlign: null,

@@ -17,6 +17,8 @@ export interface Box {
   rect: Rect;
   /** text: rect grown vertically by half-leading; others: same as rect. */
   layoutRect: Rect;
+  /** Inside the borders (padding box); text: same as rect. */
+  innerRect: Rect;
   /** text only, one per line; [] otherwise. */
   lines: Rect[];
   /** text only: first-line baseline y. */

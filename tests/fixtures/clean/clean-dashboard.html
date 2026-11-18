@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Dashboard</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/20px Arial, sans-serif; color: #1f2328; background: #fff; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #e5e7eb; }
+  .brand { font: 700 18px/24px Arial, sans-serif; }
+  .avatar { position: relative; width: 32px; height: 32px; border-radius: 50%; background: #c7d2fe; }
+  .avatar .dot { position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
+  main { padding: 24px; max-width: 1080px; margin: 0 auto; }
+  .hero { padding: 0 0 64px; }
+  .hero h1 { margin: 0 0 8px; font: 700 28px/36px Arial, sans-serif; }
+  .hero p { margin: 0; color: #59636e; max-width: 520px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .stat { background: #f6f8fa; border-radius: 8px; padding: 16px; }
+  .stat .label { margin: 0 0 4px; color: #59636e; }
+  .stat .value { margin: 0; font: 700 24px/32px Arial, sans-serif; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 32px; }
+  .btn { height: 36px; padding: 0 16px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; font: 14px Arial, sans-serif; }
+  .btn.primary { height: 44px; padding: 0 24px; background: #1f6feb; border-color: #1f6feb; color: #fff; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #e5e7eb; }
+  th { font-weight: 700; color: #59636e; }
+  .email { display: block; max-width: 140px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  dialog { padding: 24px; }
+</style></head>
+<body>
+  <header>
+    <span class="brand">Acme</span>
+    <span class="sr-only">Signed in as Jane</span>
+    <div class="avatar"><span class="dot"></span></div>
+  </header>
+  <main>
+    <section class="hero">
+      <h1>Good morning, Jane</h1>
+      <p>Here is how your store did this week. Revenue is up and two orders still need attention.</p>
+    </section>
+    <section class="stats">
+      <div class="stat"><p class="label">Revenue</p><p class="value">$12,480</p></div>
+      <div class="stat"><p class="label">Orders</p><p class="value">318</p></div>
+      <div class="stat"><p class="label">Refunds</p><p class="value">4</p></div>
+    </section>
+    <div class="actions">
+      <button class="btn">Export</button>
+      <button class="btn">Filter</button>
+      <button class="btn primary">New order</button>
+    </div>
+    <table>
+      <thead><tr><th>Order</th><th>Customer</th><th>Total</th></tr></thead>
+      <tbody>
+        <tr><td>#1042</td><td><span class="email">jane.long-name@example.com</span></td><td>$120.00</td></tr>
+        <tr><td>#1043</td><td><span class="email">sam@example.com</span></td><td>$64.50</td></tr>
+        <tr><td>#1044</td><td><span class="email">li.wei@example.com</span></td><td>$310.00</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <dialog><p>Hidden until opened</p></dialog>
+</body></html>

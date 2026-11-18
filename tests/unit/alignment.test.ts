@@ -26,8 +26,14 @@ it('skips text pairs with different text-align', () =>
   expect(alignment.check(snap([text(16, 0, 100, 'center'), text(18, 30)]), opts, 'error')).toEqual([]));
 
 it('compares centered text by its center', () => {
-  const f = alignment.check(snap([text(100, 0, 200, 'center'), text(152, 30, 100, 'center')]), opts, 'error');
+  const f = alignment.check(snap([text(100, 0, 200, 'center'), text(150, 30, 100, 'center'), text(152, 60, 100, 'center')]), opts, 'error');
   expect(f[0]).toMatchObject({ check: 'center-x', measured: 2 });
+});
+
+it('ignores a lone stacked pair: two edges that happen to be close are not a column', () => {
+  const pill = box({ x: 300, y: 0, w: 97.44, h: 28, kind: 'surface' });
+  const card = box({ x: 0, y: 52, w: 400, h: 200, kind: 'surface' });
+  expect(alignment.check(snap([pill, card]), opts, 'error')).toEqual([]);
 });
 
 it('accepts a pair aligned on any edge (button under input, right edges equal)', () => {

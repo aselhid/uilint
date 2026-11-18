@@ -266,36 +266,54 @@
   const built = [];
   for (const e of entries) {
     if (e.type === 'el') {
-      built.push({ e, rect: e.rect, layoutRect: e.rect, lines: [], baseline: null, textAlign: null, clipped: null, ellipsis: false,
+      const ecs = style(e.el);
+      // In a border-collapse table, a cell's box holds only half of each shared border.
+      const share = ecs.display === 'table-cell' && ecs.borderCollapse === 'collapse' ? 0.5 : 1;
+      const bw = (side) => (parseFloat(ecs['border' + side + 'Width']) || 0) * share;
+      const inner = {
+        x: e.rect.x + bw('Left'), y: e.rect.y + bw('Top'),
+        width: Math.max(0, e.rect.width - bw('Left') - bw('Right')),
+        height: Math.max(0, e.rect.height - bw('Top') - bw('Bottom')),
+      };
+      built.push({ e, rect: e.rect, layoutRect: e.rect, innerRect: inner, lines: [], baseline: null, textAlign: null, clipped: null, ellipsis: false,
         tag: e.el.tagName.toLowerCase(), text: snippet(e.el.innerText || e.el.getAttribute('aria-label') || e.el.getAttribute('alt') || e.el.getAttribute('placeholder') || e.el.value) });
       continue;
     }
     if (e.nodes.length === 0) continue;
-    const lines = lineRects(e.nodes);
+    let lines = lineRects(e.nodes);
     if (lines.length === 0) continue;
     const cs = style(e.owner);
     let rect = union(lines);
-    if (e.clipEl) {
-      // Skip text that is entirely hidden by its clipping ancestor.
-      const c = paddingBox(e.clipEl);
-      if (!intersects(rect, c)) continue;
-    }
+    const clipBox = e.clipEl ? paddingBox(e.clipEl) : null;
+    // Skip text that is entirely hidden by its clipping ancestor.
+    if (clipBox && !intersects(rect, clipBox)) continue;
     const glyph = lines[0].height;
-    const lh = parseFloat(cs.lineHeight);
+    const baseline = lines[0].y + ascentOf(cs);
+    const ellipsis = cs.textOverflow === 'ellipsis' && e.owner.scrollWidth > e.owner.clientWidth;
+    let clipped = null;
+    if (clipBox) {
+      const hx = Math.max(0, rect.x + rect.width - (clipBox.x + clipBox.width)) + Math.max(0, clipBox.x - rect.x);
+      const hy = Math.max(0, rect.y + rect.height - (clipBox.y + clipBox.height)) + Math.max(0, clipBox.y - rect.y);
+      if (!ellipsis && (hx > 0.5 || hy > 0.5)) clipped = { x: r2(hx), y: r2(hy) };
+      // Measure only what is visible, so hidden text can't overlap or misalign with its neighbours.
+      if (hx > 0 || hy > 0) {
+        const cut = (r) => {
+          const x1 = Math.max(r.x, clipBox.x), y1 = Math.max(r.y, clipBox.y);
+          const x2 = Math.min(r.x + r.width, clipBox.x + clipBox.width), y2 = Math.min(r.y + r.height, clipBox.y + clipBox.height);
+          return x2 > x1 && y2 > y1 ? { x: x1, y: y1, width: x2 - x1, height: y2 - y1 } : null;
+        };
+        lines = lines.map(cut).filter(Boolean);
+        if (lines.length === 0) continue;
+        rect = union(lines);
+      }
+    }
     // Chrome puts floor(leading / 2) above the glyphs and the rest below.
+    const lh = parseFloat(cs.lineHeight);
     const leading = Number.isFinite(lh) ? lh - glyph : 0;
     const above = Math.floor(leading / 2);
     const layoutRect = { x: rect.x, y: rect.y - above, width: rect.width, height: rect.height + leading };
-    const ellipsis = cs.textOverflow === 'ellipsis' && e.owner.scrollWidth > e.owner.clientWidth;
-    let clipped = null;
-    if (e.clipEl && !ellipsis) {
-      const c = paddingBox(e.clipEl);
-      const hx = Math.max(0, rect.x + rect.width - (c.x + c.width)) + Math.max(0, c.x - rect.x);
-      const hy = Math.max(0, rect.y + rect.height - (c.y + c.height)) + Math.max(0, c.y - rect.y);
-      if (hx > 0.5 || hy > 0.5) clipped = { x: r2(hx), y: r2(hy) };
-    }
     built.push({
-      e, rect, layoutRect, lines, baseline: lines[0].y + ascentOf(cs), textAlign: resolveAlign(cs), clipped, ellipsis,
+      e, rect, layoutRect, innerRect: rect, lines, baseline, textAlign: resolveAlign(cs), clipped, ellipsis,
       tag: e.owner.tagName.toLowerCase(), text: snippet(e.nodes.map((n) => n.data).join(' ')),
     });
   }
@@ -311,6 +329,7 @@
       kind: b.e.type === 'el' ? b.e.kind : 'text',
       rect: round(b.rect),
       layoutRect: round(b.layoutRect),
+      innerRect: round(b.innerRect),
       lines: b.lines.map(round),
       baseline: b.baseline === null ? null : r2(b.baseline),
       textAlign: b.textAlign,

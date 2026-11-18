@@ -81,7 +81,8 @@ export const spacing: Rule<SpacingOptions> = {
       if (c.kind !== 'surface') continue;
       const kids = children.get(c.id);
       if (!kids) continue;
-      const r = c.rect;
+      // Measure padding from inside the borders: a bottom divider is not extra padding.
+      const r = c.innerRect;
       const sides: { axis: 'x' | 'y'; first: string; second: string; v1: number; v2: number }[] = [];
       // Ragged text makes left/right insets meaningless, so only solid children count horizontally.
       const solid = kids.filter((k) => k.kind !== 'text');

@@ -2,7 +2,15 @@ import { rowPairs, stackedPairs, type Pair } from '../geometry/relations.js';
 import { fmtPx, isNearMiss, round2 } from '../near-miss.js';
 import type { Box, Finding, Rule } from '../types.js';
 
-export interface AlignmentOptions { min: number; max: number; maxGap: number }
+export interface AlignmentOptions {
+  min: number;
+  max: number;
+  maxGap: number;
+  /** Stacked boxes: how many others must share the edge exactly before a near miss counts. */
+  minColumnPeers: number;
+  /** Boxes in a row: the same, for top/bottom/center/baseline. */
+  minRowPeers: number;
+}
 
 type Edge = 'left' | 'right' | 'center-x' | 'top' | 'bottom' | 'center-y' | 'baseline';
 
@@ -72,7 +80,7 @@ function components(pairs: Pair[]): Map<number, Box[]> {
   return byBox;
 }
 
-function check(pairs: Pair[], edgesFor: (a: Box, b: Box) => Edge[], o: AlignmentOptions, where: (n: number) => string,
+function check(pairs: Pair[], edgesFor: (a: Box, b: Box) => Edge[], o: AlignmentOptions, minPeers: number, where: (n: number) => string,
   severity: Finding['severity']): Finding[] {
   const comp = components(pairs);
   const group = (x: Box, e: Edge) =>
@@ -88,6 +96,8 @@ function check(pairs: Pair[], edgesFor: (a: Box, b: Box) => Edge[], o: Alignment
     if (!isNearMiss(best.d, 0, { min: o.min, max: o.max })) continue;
     const ga = group(a, best.e), gb = group(b, best.e);
     const [offender, peers] = ga.length < gb.length ? [a, gb] : [b, ga];
+    // Two unrelated boxes often land a few px apart by chance; a real guide line is shared by several.
+    if (peers.length < minPeers) continue;
     const key = `${offender.id}:${best.e}`;
     if (reported.has(key)) continue;
     reported.add(key);
@@ -109,10 +119,10 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export const alignment: Rule<AlignmentOptions> = {
   name: 'alignment',
-  defaults: { min: 0.5, max: 4, maxGap: 48 },
+  defaults: { min: 0.5, max: 4, maxGap: 48, minColumnPeers: 2, minRowPeers: 1 },
   check(snapshot, o, severity) {
-    const stacked = check(stackedPairs(snapshot.boxes, o), stackedEdges, o, (n) => `${plural(n, 'stacked item')}`, severity);
-    const row = check(rowPairs(snapshot.boxes, o), rowEdges, o, (n) => `${plural(n, 'item')} in the row`, severity);
+    const stacked = check(stackedPairs(snapshot.boxes, o), stackedEdges, o, o.minColumnPeers, (n) => `${plural(n, 'stacked item')}`, severity);
+    const row = check(rowPairs(snapshot.boxes, o), rowEdges, o, o.minRowPeers, (n) => `${plural(n, 'item')} in the row`, severity);
     return [...stacked, ...row];
   },
 };

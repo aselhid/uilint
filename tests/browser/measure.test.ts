@@ -160,3 +160,27 @@ it('gives identical snapshots on repeated runs', async () => {
   const html = `<div style="background:#eee;padding:16px"><h2>Title</h2><p>Body text here</p><button>Go</button></div>`;
   expect(JSON.stringify(await snap(html))).toBe(JSON.stringify(await snap(html)));
 });
+
+it('measures clipped and truncated text only where it is visible', async () => {
+  const s = await snap(`<div style="width:100px;overflow:hidden;white-space:nowrap">${'x'.repeat(60)}</div>
+    <div style="width:100px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${'y'.repeat(60)}</div>`);
+  expect(s.boxes[0].clipped!.x).toBeGreaterThan(100);
+  for (const b of s.boxes) {
+    expect(b.rect.width).toBeLessThanOrEqual(100);
+    expect(b.layoutRect.width).toBeLessThanOrEqual(100);
+    expect(b.lines.every((l) => l.width <= 100)).toBe(true);
+  }
+});
+
+it('records the box inside its borders', async () => {
+  const s = await snap(`<div style="background:#eee;border-bottom:1px solid #000;border-left:3px solid #000;padding:8px;width:100px;font:14px/20px Arial"><span>Hi</span></div>`);
+  expect(s.boxes[0].rect).toMatchObject({ width: 119, height: 37 });
+  expect(s.boxes[0].innerRect).toMatchObject({ x: 3, y: 0, width: 116, height: 36 });
+  expect(s.boxes[1].innerRect).toEqual(s.boxes[1].rect);
+});
+
+it('counts only half of a collapsed table border inside the cell', async () => {
+  const s = await snap(`<table style="border-collapse:collapse;font:14px/20px Arial"><tr><td style="padding:12px;border-bottom:1px solid #ccc">A</td></tr></table>`);
+  const td = s.boxes.find((b) => b.kind === 'surface')!;
+  expect(td.rect.y + td.rect.height - (td.innerRect.y + td.innerRect.height)).toBeCloseTo(0.5, 1);
+});

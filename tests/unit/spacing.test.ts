@@ -61,3 +61,9 @@ it('applies the optional minimum gap between text blocks', () => {
   const f = spacing.check(snap([t(0), t(20)]), { ...opts, minTextGap: 8 }, 'warn');
   expect(f).toEqual([expect.objectContaining({ check: 'min-gap', measured: 4, expected: 8, severity: 'warn' })]);
 });
+
+it('measures insets inside the border, so a bottom divider is not uneven padding', () => {
+  const header = box({ x: 0, y: 0, w: 300, h: 65, innerRect: { x: 0, y: 0, width: 300, height: 64 } }); // 1px bottom border
+  const t = box({ x: 24, y: 16, w: 100, h: 32, kind: 'text', containerId: header.id }); // top 16, bottom 16 inside the border
+  expect(spacing.check(snap([header, t]), opts, 'error')).toEqual([]);
+});
