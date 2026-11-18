@@ -18,6 +18,7 @@ const CHECKS = new Set([
   'gap', 'inset-x', 'inset-y', 'min-gap', 'scale',
   'height', 'width',
   'clipped', 'ellipsis', 'spill', 'hscroll', 'overlap',
+  'ratio', 'placeholder', 'unverified',
 ]);
 
 /** Format: `rule | matcher | viewport | reason`, one per line; `#` comments and blank lines allowed. */

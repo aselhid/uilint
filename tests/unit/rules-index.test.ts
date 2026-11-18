@@ -7,8 +7,8 @@ beforeEach(resetBoxIds);
 const row = (y: number) => box({ x: 0, y, w: 300, h: 40 });
 const page = () => snap([row(0), row(56), row(112), row(166), box({ x: 0, y: 300, w: 10, h: 10, kind: 'text', clipped: { x: 4, y: 0 } })]);
 
-it('registers the four rules in order', () =>
-  expect(RULES.map((r) => r.name)).toEqual(['alignment', 'spacing', 'size-consistency', 'overflow']));
+it('registers the rules in order', () =>
+  expect(RULES.map((r) => r.name)).toEqual(['alignment', 'spacing', 'size-consistency', 'overflow', 'contrast']));
 
 it('runs every rule by default', () =>
   expect(new Set(runRules(page(), DEFAULT_CONFIG).map((f) => f.rule))).toEqual(new Set(['spacing', 'overflow'])));

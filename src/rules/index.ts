@@ -1,18 +1,20 @@
 import { ruleSetting, type UilintConfig } from '../config.js';
 import type { Finding, Rule, RuleName, Severity, Snapshot } from '../types.js';
 import { alignment } from './alignment.js';
+import { contrast } from './contrast.js';
 import { overflow } from './overflow.js';
 import { sizeConsistency } from './size-consistency.js';
 import { spacing } from './spacing.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const RULES: Rule<any>[] = [alignment, spacing, sizeConsistency, overflow];
+export const RULES: Rule<any>[] = [alignment, spacing, sizeConsistency, overflow, contrast];
 
 export const DEFAULT_SEVERITY: Record<RuleName, Severity> = {
   alignment: 'error',
   spacing: 'error',
   'size-consistency': 'error',
   overflow: 'error',
+  contrast: 'error',
 };
 
 const ORDER = new Map(RULES.map((r, i) => [r.name, i]));

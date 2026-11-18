@@ -20,7 +20,7 @@ export interface UilintConfig {
   timeouts: { navigation: number; stable: number };
 }
 
-export const RULE_NAMES: RuleName[] = ['alignment', 'spacing', 'size-consistency', 'overflow'];
+export const RULE_NAMES: RuleName[] = ['alignment', 'spacing', 'size-consistency', 'overflow', 'contrast'];
 const SEVERITIES: Severity[] = ['off', 'warn', 'error'];
 
 export const DEFAULT_CONFIG: UilintConfig = {

@@ -44,6 +44,13 @@ describe('loadConfig', () => {
     expect(config.driver.options.profile).toBe('work');
   });
 
+  it('accepts contrast rule settings', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'uilint-cfg-contrast-'));
+    await writeFile(join(d, 'uilint.config.json'), JSON.stringify({ rules: { contrast: ['error', { level: 'AAA' }] } }));
+    const { config } = await loadConfig(undefined, d);
+    expect(config.rules.contrast).toEqual(['error', { level: 'AAA' }]);
+  });
+
   it('rejects unknown rules with a UilintError naming the rule', async () => {
     const p = loadConfig(fx('bad.json'), cwd);
     await expect(p).rejects.toThrow(/unknown rule "spaceing"/);

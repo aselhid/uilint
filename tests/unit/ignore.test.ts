@@ -32,6 +32,9 @@ describe('parseIgnore', () => {
     expect(() => parseIgnore('alignment | text:x', 'f')).toThrow(/f:1: .*4 fields/));
   it('rejects an unknown rule or check', () =>
     expect(() => parseIgnore('aligment | text:x | * | r', 'f')).toThrow(/f:1: .*unknown rule/));
+  it('accepts the contrast rule and its checks', () =>
+    expect(['contrast', 'ratio', 'placeholder', 'unverified'].map((r) => parseIgnore(`${r} | text:x | * | brand colour`, 'f')[0].rule))
+      .toEqual(['contrast', 'ratio', 'placeholder', 'unverified']));
   it('keeps pipes inside the reason', () =>
     expect(parseIgnore('* | text:x | 375 | a | b', 'f')[0]).toMatchObject({ rule: '*', viewport: 375, reason: 'a | b' }));
 });

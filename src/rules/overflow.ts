@@ -1,6 +1,7 @@
 import { isWithin } from '../geometry/relations.js';
 import { fmtPx, round2 } from '../near-miss.js';
-import type { ActiveSeverity, Box, Finding, Rule, Severity } from '../types.js';
+import type { Box, Finding, Rule, Severity } from '../types.js';
+import { capSeverity } from './cap.js';
 
 export interface OverflowOptions {
   tolerance: number;
@@ -12,18 +13,13 @@ export interface OverflowOptions {
   overlap: Severity;
 }
 
-function cap(sub: Severity, rule: ActiveSeverity): ActiveSeverity | null {
-  if (sub === 'off') return null;
-  return rule === 'warn' ? 'warn' : sub;
-}
-
 export const overflow: Rule<OverflowOptions> = {
   name: 'overflow',
   defaults: { tolerance: 1, clipped: 'error', ellipsis: 'warn', spill: 'error', spillDecorative: 'warn', hscroll: 'error', overlap: 'error' },
   check(snapshot, o, ruleSeverity) {
     const findings: Finding[] = [];
     const add = (sub: Severity, f: Omit<Finding, 'rule' | 'severity'>) => {
-      const severity = cap(sub, ruleSeverity);
+      const severity = capSeverity(sub, ruleSeverity);
       if (severity) findings.push({ rule: 'overflow', severity, ...f });
     };
     const byId = new Map(snapshot.boxes.map((b) => [b.id, b]));
