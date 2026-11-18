@@ -8,7 +8,7 @@ A layout linter for coding agents. It measures the rendered page and reports nea
 
 [![uilint demo: an agent runs uilint on a React dashboard, gets 4 errors, fixes them, and reruns to a clean exit 0](docs/media/uilint-demo.gif)](docs/media/uilint-demo.mp4)
 
-In the demo above (56s, [full-quality mp4](docs/media/uilint-demo.mp4)), an agent runs uilint on a React dashboard it built. uilint reports a label 3px out of line with the numbers under it, a 20px gap among 16px gaps on a phone, a button 1px taller than its neighbors, and a page that scrolls 58px sideways at 375px. The agent fixes each one at the JSX line uilint named, reruns, and gets exit code 0. Everything in the video is real uilint output; [`demo/`](demo/) regenerates it.
+In the demo above (56s, [full-quality mp4](docs/media/uilint-demo.mp4)), an agent runs uilint on a React dashboard it built. uilint reports a label 3px out of line with the numbers under it, a 20px gap among 16px gaps on a phone, a button 1px taller than its neighbors, and a page that scrolls 58px sideways at 375px. The agent fixes each one at the JSX line uilint named, reruns, and gets exit code 0. Everything in the video is real uilint output; [`demo/`](demo/) regenerates it. To check the same findings yourself, `--report` draws each one on a screenshot of the page ([visual report](#visual-report)).
 
 uilint loads a web page in a real browser, measures where every visible element landed, and reports small layout mistakes as text: spacing that is slightly off, edges a few pixels out of line, near-identical elements with slightly different sizes, and clipped or overflowing content. It is meant to be run by a coding agent after it changes UI, so the agent gets a deterministic list of problems to fix instead of guessing from screenshots.
 
@@ -54,6 +54,26 @@ Exit codes:
 | 1 | one or more errors |
 | 2 | uilint itself failed: the page didn't load, returned HTTP 400 or above, a setup script threw, the config is invalid, or the layout never stopped moving |
 
+## Visual report
+
+The text output is written for the agent. For the person reviewing the agent's work, `--report` also writes one self-contained HTML file that shows each problem on a screenshot of the page:
+
+```sh
+npx uilint http://localhost:3000/dashboard --report uilint-report.html
+```
+
+[![uilint visual report: each finding as a card with its text, and a cropped screenshot per viewport with the element to fix outlined in red, the elements it was compared with in blue, and the measurement drawn on](docs/media/uilint-report.png)](docs/media/uilint-report.png)
+
+Each card repeats the finding exactly as the terminal prints it, then shows the affected part of the page at every width where it happens. The element to fix is outlined in red, the elements that set the expected value in blue, and the measurement is drawn where it was taken: a shaded gap labelled `20px · siblings 16px`, a dashed edge line labelled `3px off`, a `+58px` strip for a page that scrolls sideways. Click a picture to see the whole page.
+
+The screenshots are taken right after uilint measures, in the same browser session, so the outlines sit on the pixels uilint measured. A few things to know:
+
+- The report lists every finding, including ones `--max` hides from the text output. Baselined and ignored findings are left out of both.
+- Screenshots cover the first 10,000px of the page. A finding further down is drawn on a wireframe of the measured boxes.
+- An adapter without screenshot support gets the wireframe for every finding.
+- The file makes no network requests, so it can be attached to a PR or kept as a CI artifact. Each screenshot is embedded once, so the size grows with pages × widths, not with the number of findings.
+- `--report` doesn't change the text output, the JSON or the exit code, apart from a `report written to …` note.
+
 ## Command line
 
 ```
@@ -67,6 +87,7 @@ uilint [urls...]
   --json                 machine-readable output
   --max <n>              cap the number of reported violations (default 50)
   --update-baseline      write current violations to the baseline file and exit 0
+  --report <file>        also write a visual HTML report to <file> (see Visual report)
 ```
 
 With no URLs, uilint lints the `pages` listed in the config. `--setup` applies to every URL on the command line; use `pages` in the config when each page needs its own setup.
@@ -226,6 +247,8 @@ interface DriverPage {
   addStyle(css: string): Promise<void>;
   waitForNetworkIdle(timeoutMs: number): Promise<void>; // never throws on timeout
   runSetup(file: string): Promise<void>;
+  screenshot?(opts: { maxHeight: number }): Promise<Buffer>; // optional, for --report: full-page PNG from (0,0)
+                                                // at CSS scale, document width, at most maxHeight tall
   close(): Promise<void>;                       // idempotent
 }
 ```
@@ -254,6 +277,10 @@ export async function createDriver(options) {
         addStyle: async (css) => { await page.addStyleTag({ content: css }); },
         waitForNetworkIdle: (ms) => page.waitForNetworkIdle({ timeout: ms }).catch(() => {}),
         runSetup: async (file) => { await (await import(pathToFileURL(file).href)).default(page); },
+        screenshot: async ({ maxHeight }) => {
+          const [width, height] = await page.evaluate('[document.documentElement.scrollWidth, document.documentElement.scrollHeight]');
+          return Buffer.from(await page.screenshot({ clip: { x: 0, y: 0, width, height: Math.min(height, maxHeight) }, captureBeyondViewport: true }));
+        },
         close: async () => { if (!closed) { closed = true; await page.close(); } },
       };
     },
@@ -279,6 +306,8 @@ runDriverConformance('puppeteer', () => createDriver({}), { setupFile: '/abs/pat
 ## Using it with a coding agent
 
 `agent/INSTRUCTIONS.md` is a short block to paste into your agent's instructions (CLAUDE.md, AGENTS.md or similar). `agent/skills/uilint/SKILL.md` is the same content as a Claude Code skill; copy the `uilint` folder into `.claude/skills/`.
+
+The instructions have the agent pass `--report uilint-report.html` on every run, so a visual report of the last run is waiting for you when the agent finishes; the agent names the file in its summary but doesn't read it. Add `uilint-report.html` to your `.gitignore`.
 
 Keep `uilint.ignore`, `uilint.baseline.json` and the config under your own review, for example with CODEOWNERS. Nothing technically stops an agent from editing them; the instructions tell it not to.
 

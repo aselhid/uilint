@@ -8,7 +8,7 @@ description: Use after changing UI in a React web app (components, styles, layou
 After you change UI, run uilint on every page you touched, with the dev server running:
 
 ```sh
-npx uilint http://localhost:3000/<page> [more urls...]
+npx uilint http://localhost:3000/<page> [more urls...] --report uilint-report.html
 ```
 
 Rules:
@@ -17,6 +17,7 @@ Rules:
 - Fix every error by changing the UI code, then run uilint again. You are done when it exits with code 0.
 - Never edit `uilint.ignore`, `uilint.baseline.json` or `uilint.config.*`.
 - If a violation looks intentional, stop and tell the human, quoting the violation. Don't work around it.
+- Always pass `--report uilint-report.html`. It is a visual report for the human: don't open or read it, and never commit it. When you finish, tell the human it's there: `visual report: uilint-report.html`.
 
 Exit code 1 means there are errors to fix. Exit code 2 means uilint itself could not run (page didn't load, setup script failed, layout kept moving); read the message and fix the cause, or report it.
 
