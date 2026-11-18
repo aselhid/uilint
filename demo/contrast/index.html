@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northwind · Plans</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #1f2933; background: #f5f7fa; }
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; background: #ffffff; border-bottom: 1px solid #e4e7eb; }
+  .logo { font-weight: 700; font-size: 18px; color: #102a43; }
+  .nav a { color: #b8c2cc; text-decoration: none; font-size: 14px; margin-left: 24px; }
+  .hero { position: relative; padding: 72px 32px; color: #ffffff;
+    background: #334e68 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='300'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23d9e2ec'/%3E%3Cstop offset='1' stop-color='%23627d98'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='600' height='300' fill='url(%23g)'/%3E%3Ccircle cx='480' cy='80' r='120' fill='%23f0f4f8' opacity='.7'/%3E%3C/svg%3E") center / cover; }
+  .hero h1 { margin: 0 0 12px; font-size: 40px; line-height: 1.15; max-width: 640px; }
+  .hero p { margin: 0; font-size: 18px; max-width: 560px; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 32px 64px; }
+  .promo { padding: 16px 20px; border-radius: 10px; margin-bottom: 32px; color: #ffffff; font-weight: 600;
+    background: linear-gradient(90deg, #2563eb, #93c5fd); }
+  .section-title { font-size: 24px; margin: 0 0 4px; color: #102a43; }
+  .section-sub { margin: 0 0 24px; color: #9aa5b1; font-size: 15px; }
+  .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .plan { background: #ffffff; border: 1px solid #e4e7eb; border-radius: 12px; padding: 24px; }
+  .plan h3 { margin: 0 0 8px; font-size: 18px; color: #102a43; }
+  .price { font-size: 32px; font-weight: 700; color: #102a43; margin: 0; }
+  .per { font-size: 14px; color: #a0aec0; margin: 0 0 16px; }
+  .plan ul { margin: 0 0 20px; padding-left: 18px; font-size: 14px; line-height: 1.8; color: #3e4c59; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: middle;
+    background: #fbbf24; color: #ffffff; }
+  .btn { display: block; width: 100%; padding: 10px 14px; border-radius: 8px; border: 0; font: 600 14px/1.2 inherit; cursor: pointer; }
+  .btn.primary { background: #2563eb; color: #ffffff; }
+  .btn.ghost { background: #eef2ff; color: #a5b4fc; }
+  .btn:disabled { background: #f1f5f9; color: #cbd5e1; cursor: not-allowed; }
+  .plan.featured { background: #102a43; border-color: #102a43; }
+  .plan.featured h3, .plan.featured .price { color: #ffffff; }
+  .plan.featured .per { color: #486581; }
+  .plan.featured ul { color: #d9e2ec; }
+  .contact { margin-top: 40px; background: #ffffff; border: 1px solid #e4e7eb; border-radius: 12px; padding: 24px; max-width: 520px; }
+  .contact label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #243b53; }
+  .contact input { width: 100%; padding: 10px 12px; border: 1px solid #d9e2ec; border-radius: 8px; font-size: 14px; color: #1f2933; margin-bottom: 4px; }
+  .contact input::placeholder { color: #cbd2d9; }
+  .hint { font-size: 12px; color: #bcccdc; margin: 0 0 16px; }
+  footer { text-align: center; font-size: 13px; color: #cbd2d9; padding: 24px; }
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <span class="logo">Northwind</span>
+    <div><a href="#">Product</a><a href="#">Pricing</a><a href="#">Docs</a></div>
+  </nav>
+
+  <header class="hero">
+    <h1>Shipping software for teams that move fast</h1>
+    <p>Track every order from warehouse to doorstep, in one place.</p>
+  </header>
+
+  <main>
+    <div class="promo">Save 20% when you pay yearly — offer ends Friday</div>
+
+    <h2 class="section-title">Choose a plan</h2>
+    <p class="section-sub">All plans include unlimited shipments and email support.</p>
+
+    <div class="plans">
+      <section class="plan">
+        <h3>Starter</h3>
+        <p class="price">$19</p>
+        <p class="per">per user / month</p>
+        <ul><li>Up to 3 warehouses</li><li>Basic tracking</li></ul>
+        <button class="btn ghost">Start free trial</button>
+      </section>
+      <section class="plan featured">
+        <h3>Growth <span class="badge">Popular</span></h3>
+        <p class="price">$49</p>
+        <p class="per">per user / month</p>
+        <ul><li>Unlimited warehouses</li><li>Live tracking and alerts</li></ul>
+        <button class="btn primary">Start free trial</button>
+      </section>
+      <section class="plan">
+        <h3>Enterprise</h3>
+        <p class="price">Custom</p>
+        <p class="per">billed annually</p>
+        <ul><li>SSO and audit log</li><li>Dedicated support</li></ul>
+        <button class="btn" disabled>Coming soon</button>
+      </section>
+    </div>
+
+    <form class="contact">
+      <label for="email">Work email</label>
+      <input id="email" type="email" placeholder="you@company.com">
+      <p class="hint">We'll never share your email.</p>
+      <button class="btn primary" type="button">Talk to sales</button>
+    </form>
+
+  </main>
+
+  <footer>© 2026 Northwind Logistics</footer>
+</body>
+</html>
