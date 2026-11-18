@@ -1,84 +1,87 @@
-# uilint — design
+# uilint design
 
-A deterministic linter for rendered web UI. It loads a page in a real browser,
-measures where everything actually landed, and reports small visual mistakes
+uilint is a deterministic linter for rendered web UI. It loads a page in a real
+browser, measures where everything landed, and reports small visual mistakes
 as text violations that a coding agent must fix.
 
 ## Why
 
-Our agent already builds UI that is good overall. What it misses are the small
-details a person only catches by looking:
+Our agent already builds UI that is good overall. It misses the small details
+a person only catches by looking:
 
 1. spacing that is slightly too tight or too wide
-2. things that should line up but are a few pixels off — often elements that
-   sit in different branches of the HTML tree, so nothing in the code shows
-   they are related
+2. things that should line up but are a few pixels off, often elements in
+   different branches of the HTML tree, so nothing in the code shows they are
+   related
 
-Plus the same family of misses: near-identical elements with slightly
-different sizes, clipped or overflowing content, and layouts that only break
-at narrow widths.
+It also misses near-identical elements with slightly different sizes, clipped
+or overflowing content, and layouts that only break at narrow widths.
 
-Asking the agent to inspect screenshots is unreliable and expensive in tokens.
-A linter gives a hard, repeatable verdict in cheap text: same page, same
-result, every time. The agent runs it, fixes every error, and runs it again.
+Asking the agent to inspect screenshots is unreliable and costs a lot of
+tokens. A linter gives the same verdict on the same page every time, in cheap
+text. The agent runs it, fixes every error, and runs it again.
 
 There is no Figma file or token system to compare against. The reference is
-the owner's eye, so everything must be tunable.
+the owner's eye, so every threshold must be tunable.
 
 ## The core idea: flag near misses only
 
-The thing that makes this usable is that **it only flags things that are almost
-right**.
+uilint only flags things that are almost right.
 
 - Two edges 3px apart are almost certainly a mistake. Two edges 40px apart are
   almost certainly intentional.
 - A 14px gap in a run of 16px gaps is a bug. A 64px gap above a hero is a choice.
 
-Every rule looks for a value that is *close to* a peer value but not equal to
-it, inside a configurable "near-miss window" (e.g. more than 0.5px and at most
-4px off). Anything clearly different is treated as intentional and ignored.
-This keeps false alarms low without anyone annotating anything.
+Every rule looks for a value that is close to a peer value but not equal to
+it, inside a configurable near-miss window (for example, more than 0.5px and at
+most 4px off). uilint treats anything clearly different as intentional and
+ignores it. This keeps false alarms low without anyone annotating anything.
 
-**Precision beats recall.** A missed bug costs one detail. A false alarm costs
-more: the agent will dutifully "fix" it and make the UI worse. When in doubt, a
-rule stays quiet or reports a warning, not an error.
+Precision matters more than recall. A missed bug costs one detail. A false
+alarm costs more, because the agent will "fix" it and make the UI worse. When a
+rule is unsure, it stays quiet or reports a warning instead of an error.
 
 ## Goals
 
-- Catch, deterministically, from the rendered page:
-  - **spacing** near-misses
-  - **alignment** near-misses, across DOM ancestors
-  - **size consistency** near-misses in sets of similar elements
-  - **overflow / clipping / unwanted horizontal scroll / overlapping text**
-  - all of the above at several viewport widths
-- Text-only output that an agent can act on without seeing the page, and that
-  is small in tokens.
+- Catch these problems deterministically from the rendered page, at several
+  viewport widths:
+  - spacing near misses
+  - alignment near misses, across DOM ancestors
+  - size near misses in sets of similar elements
+  - overflow, clipping, unwanted horizontal scroll, and overlapping text
+- Text-only output, small in tokens, that an agent can act on without seeing
+  the page.
 - Every threshold and rule tunable by the owner.
-- A hard gate: non-zero exit code when there are errors.
-- Works on an existing app on day one via a baseline.
+- A non-zero exit code when there are errors, so the agent can't call the work
+  done.
+- Usable on an existing app on day one, through a baseline.
 
 ## Non-goals
 
-- Color, contrast, typography choices, accessibility (axe already exists).
-- Pixel diffing / visual regression against a previous screenshot.
+- Color, contrast, typography choices, and accessibility (axe already covers
+  accessibility).
+- Pixel diffing or visual regression against a previous screenshot.
 - Comparing against Figma or a design-token file.
 - Sending screenshots or images to the agent.
 - Auto-fixing code.
-- Hover/focus/animation states (only the settled state after setup is linted).
+- Hover, focus, and animation states. uilint lints only the settled state after
+  setup.
 - Replacing the agent's existing Playwright verification. uilint is a separate
   tool with its own command.
 
-## Anti-goals (failure even if it "works")
+## Anti-goals
 
-- **Noisy.** If clean, well-built screens produce errors, the agent will degrade
-  good UI to satisfy the tool. That is worse than no tool.
-- **Silenceable by the agent.** If the agent can make a violation go away
-  without fixing the UI, it will. There must be no in-code opt-out (no
-  `data-uilint-ignore` attribute, no magic class names). Exceptions live only in
-  owner-controlled files.
-- **Flaky.** The same page must give the same result on every run.
-- **Token-heavy.** A page with a repeated bug across 30 list items must not
-  print 30 near-identical blocks.
+Any of these makes uilint a failure even if every rule works as specified.
+
+- Noise. If clean, well-built screens produce errors, the agent will degrade
+  good UI to satisfy the tool, and the owner is worse off than with no tool.
+- An opt-out the agent can use. If the agent can make a violation go away
+  without fixing the UI, it will. uilint must not read any opt-out from the
+  page's code: no `data-uilint-ignore` attribute and no magic class names.
+  Exceptions live only in files the owner controls.
+- Flaky results. The same page must give the same result on every run.
+- Bloated output. A bug repeated across 30 list items must not print 30
+  near-identical blocks.
 
 ## How it is used
 
@@ -96,119 +99,128 @@ uilint <url> [<url> ...]
   --update-baseline      write current violations to the baseline file and exit 0
 ```
 
-Exit codes: `0` no errors (warnings allowed), `1` one or more errors, `2` the
-tool itself failed (page didn't load, setup threw, bad config).
+Exit codes: `0` means no errors (warnings allowed), `1` means one or more
+errors, and `2` means the tool itself failed (the page didn't load, setup
+threw, or the config is invalid).
 
 ### Getting the page into the right state
 
-Matches how the agent already verifies:
+uilint supports the same routes the agent already uses for verification:
 
-- **Mocked dev server** — just pass the URL.
-- **Real logged-in session** — `--profile` points at a Chrome profile the owner
-  logged into manually; `--cdp` attaches to a Chrome already running with that
-  session.
-- **States behind interaction** — `--setup` is a TS/JS module exporting
-  `async (page: Page) => void`, run after navigation and before measuring. The
-  agent may write these.
+- For a mocked dev server, pass the URL.
+- For a real logged-in session, `--profile` points at a Chrome profile the
+  owner logged into manually, and `--cdp` attaches to a Chrome that is already
+  running with that session.
+- For states behind interaction, `--setup` takes a TS/JS module exporting
+  `async (page: Page) => void`, which runs after navigation and before
+  measuring. The agent may write these.
 
-Config may also list pages, each with its own url and optional setup, so
-`uilint` with no args lints the configured set.
+The config can also list pages, each with its own URL and optional setup.
+Running `uilint` with no arguments lints that set.
 
 ### Making measurements stable
 
-Before measuring, at each viewport:
+At each viewport, before measuring, uilint:
 
-- wait for load + network idle, and `document.fonts.ready`
-- inject CSS that disables animations, transitions and caret blink
-- wait until layout is stable (measurements equal across consecutive frames)
-- measure in a fixed device scale factor (1) and a fixed viewport height,
-  covering the full scrollable page, not just the first screen (builder's call
-  on how; nested scroll containers can be limited to their visible part in v1)
+- waits for load, network idle, and `document.fonts.ready`
+- injects CSS that disables animations, transitions, and caret blink
+- waits until layout is stable (measurements equal across consecutive frames)
+- measures at device scale factor 1 and a fixed viewport height, covering the
+  full scrollable page and not just the first screen (the builder decides how;
+  in v1, nested scroll containers can be limited to their visible part)
 
-If stability isn't reached within a timeout, exit `2` rather than report
-possibly-wrong violations.
+If layout doesn't settle within a timeout, uilint exits with `2` instead of
+reporting violations that may be wrong.
 
 ## What gets measured: visual boxes
 
-Rules run on **visual boxes**, not DOM elements. A plain wrapper `<div>` with no
-background, border or shadow is invisible, so its edges don't matter and
-it is skipped. This is what lets alignment work across DOM ancestors: the
-linter compares what you actually see.
+Rules run on visual boxes, not DOM elements. A plain wrapper `<div>` with no
+background, border, or shadow is invisible, so its edges don't matter and
+uilint skips it. Because uilint compares only what a person sees, alignment
+works across DOM ancestors.
 
 A visual box is one of:
 
-- a run of text — measured from the text's own rects (via `Range`), not the
-  element, so padding on the parent doesn't distort it; per-line rects are
-  kept for multi-line text
-- an image, svg, video, canvas, iframe
+- a run of text, measured from the text's own rects (via `Range`) instead of
+  the element's box, so padding on the parent doesn't distort it; multi-line
+  text keeps one rect per line
+- an image, svg, video, canvas, or iframe
 - a form control or button
-- an element with a visible background, border, outline or box-shadow
-  (cards, chips, dividers, panels)
+- an element with a visible background, border, outline, or box-shadow, such as
+  a card, chip, divider, or panel
 
-Skipped: zero-size, `display:none`, `visibility:hidden`, `opacity:0`, fully
-off-screen or fully clipped elements, and anything matched by the config's
-`exclude` selectors (for third-party widgets etc.).
+uilint skips zero-size elements, `display:none`, `visibility:hidden`,
+`opacity:0`, anything fully off-screen or fully clipped, and anything matched
+by the config's `exclude` selectors (for example, third-party widgets).
 
-Each box records its rect, its nearest visual container (closest ancestor that
-is itself a visual box), and locator info (below).
+Each box records its rect, its nearest visual container (the closest ancestor
+that is itself a visual box), and locator info (see Output).
 
 ## Rules (first version)
 
-Each rule has `off | warn | error` severity and options. Defaults are the
-builder's call, tuned against the fixtures (see Success); suggested starting
-points are given.
+Each rule has a severity of `off`, `warn`, or `error`, plus options. The builder
+sets the defaults by tuning against the fixtures described under Success. The
+numbers below are starting points.
 
 ### `alignment`
-Boxes that are visually related should share edges exactly when they nearly
-share them.
 
-- Related means: stacked in the same column (overlapping or near each other
-  horizontally, within some vertical distance, nothing visual between them),
-  or sitting in the same row. DOM ancestry is irrelevant.
-- Compare left / right / center-x for stacked boxes; top / bottom / center-y
-  and text baseline for boxes in a row.
-- Flag when the difference is inside the near-miss window
-  (suggested: > 0.5px and ≤ 4px).
-- When several boxes share an edge and one is off, report the odd one out
-  against the group, not every pair.
+Boxes that are visually related and nearly share an edge should share it
+exactly.
+
+- Two boxes are related when they are stacked in the same column (overlapping
+  or close horizontally, within some vertical distance, with nothing visible
+  between them) or sit in the same row. DOM ancestry doesn't matter.
+- For stacked boxes, compare left, right, and center-x. For boxes in a row,
+  compare top, bottom, center-y, and text baseline.
+- Flag a difference inside the near-miss window (suggested: more than 0.5px
+  and at most 4px).
+- When several boxes share an edge and one is off, report the odd one against
+  the group instead of reporting every pair.
 
 ### `spacing`
-Gaps that should match, but nearly don't.
+
+Gaps that play the same role should be equal when they are nearly equal.
 
 - Collect gaps between adjacent visual boxes along each axis, and the insets of
-  content inside a visual container (card padding: left vs right, top vs
-  bottom).
-- Group gaps that play the same role: consecutive gaps in a stack or row,
-  gaps between repeated items, the same inset on opposite sides.
-- Flag a gap that is within the near-miss window of its group's dominant value
-  (suggested: ≤ 4px or ≤ 25%, whichever is smaller) but not equal.
-- Optional limits, off by default: minimum gap between distinct text blocks,
-  and a spacing scale (e.g. multiples of 4) for owners who want one.
+  content inside a visual container (a card's left padding against its right,
+  top against bottom).
+- Group gaps that play the same role: consecutive gaps in a stack or row, gaps
+  between repeated items, and the same inset on opposite sides.
+- Flag a gap that is within the near-miss window of its group's most common
+  value but not equal to it (suggested window: 4px or 25%, whichever is
+  smaller).
+- Two optional limits, off by default: a minimum gap between separate text
+  blocks, and a spacing scale (such as multiples of 4) for owners who want one.
 
 ### `size-consistency`
-Sets of similar elements should match exactly when they nearly match.
 
-- Sets: boxes in the same row or column that look alike (same tag/role, or
-  same React component, and close in size) — buttons in a toolbar, cards in a
-  grid, inputs in a form.
+Similar elements that nearly match in size should match exactly.
+
+- A set is a group of boxes in the same row or column that look alike: the
+  same tag or role, or the same React component, and close in size. Examples
+  are buttons in a toolbar, cards in a grid, and inputs in a form.
 - Flag height differences within a row, and width differences within a column
-  or grid, inside the near-miss window.
+  or grid, when they fall inside the near-miss window.
 
 ### `overflow`
+
 - text clipped by an ancestor with `overflow: hidden` (error)
-- active `text-overflow: ellipsis` truncation (warn by default; may be intended)
+- active `text-overflow: ellipsis` truncation (warning by default, since it may
+  be intended)
 - a box spilling outside its visual container (error)
 - document-level horizontal scroll (error)
-- text boxes overlapping other text or controls (error)
+- text overlapping other text or controls (error)
 
 ### Viewports
-All rules run at each configured width (default `375, 768, 1280`). Violations
-say which widths they occur at; the same violation at several widths is
-reported once with all widths listed.
+
+All rules run at each configured width (default `375, 768, 1280`). Each
+violation lists the widths where it occurs, and a violation that appears at
+several widths is reported once.
 
 ## Output
 
-Text by default — short, grouped, actionable without seeing the page:
+Text by default, short and grouped, so the agent can act without seeing the
+page:
 
 ```
 uilint  http://localhost:3000/dashboard   3 errors, 1 warning
@@ -227,94 +239,96 @@ warn   overflow  text truncated with ellipsis  @375
   .customer-email "jane.long-name@..."  <CustomerCell>
 ```
 
-Each violation names: severity, rule, the measured vs expected values, the
+Each violation gives its severity, rule, measured and expected values,
 viewports, and a locator for each element involved.
 
-**Locators**, best available first:
-- short visible text snippet (truncated)
+Locators, best available first:
+
+- a short snippet of visible text
 - a short unique CSS selector
-- React component name chain, read from React's dev-mode fiber on the DOM node
-- source file (and line when available) of the owning component
+- the React component name chain, read from React's dev-mode fiber on the DOM
+  node
+- the source file of the owning component, with the line when available
 
-Component and file info are best-effort and require a development build;
-production builds still get text + selector.
+Component and file info are best effort and need a development build.
+Production builds still get text and a selector.
 
-**Dedupe:** violations with the same rule, same component(s), same delta are
-collapsed into one with a count (`×12`). Output is capped by `--max`, errors
-first.
+Violations with the same rule, components, and delta collapse into one entry
+with a count (`×12`). `--max` caps the output, with errors listed first.
 
-`--json` emits the same data as structured objects (including raw rects and
-deltas) for tools.
+`--json` emits the same data as structured objects, including raw rects and
+deltas, for other tools.
 
-## Exceptions and the baseline (owner-controlled)
+## Exceptions and the baseline
 
-Two files, next to the config, which **the agent must not edit**:
+Two files sit next to the config. The owner controls them, and the agent must
+not edit them.
 
-- **`uilint.ignore`** — the owner's list of accepted deviations. Each entry:
-  rule, a matcher (selector, text, or component name), optional viewport, and
-  a required reason. Example intent: "the badge in CardHeader is offset on
-  purpose". Unused ignore entries are reported as warnings so the list doesn't
-  rot.
-- **`uilint.baseline.json`** — written by `--update-baseline`. Existing
-  violations recorded here don't fail the run; only new ones do. Fingerprints
-  must be stable across unrelated code changes (rule + locators + viewport, not
-  raw pixel values).
+- `uilint.ignore` lists deviations the owner accepts. Each entry has a rule, a
+  matcher (selector, text, or component name), an optional viewport, and a
+  required reason, such as "the badge in CardHeader is offset on purpose".
+  uilint reports unused entries as warnings so the list stays current.
+- `uilint.baseline.json` is written by `--update-baseline`. Violations recorded
+  there don't fail the run; only new ones do. Fingerprints must stay stable
+  across unrelated code changes, so they use the rule, locators, and viewport
+  instead of raw pixel values.
 
-There is no technical lock on these files; protection is by instruction (see
-Agent integration) and by the owner's review / CODEOWNERS. uilint never reads
-opt-outs from the page's own markup.
+Nothing technically locks these files. The agent's instructions (see Agent
+integration) and the owner's review or CODEOWNERS protect them. uilint never
+reads opt-outs from the page's own markup.
 
 ## Configuration
 
-`uilint.config.ts` (or `.json`):
+`uilint.config.ts` (or `.json`) holds:
 
-- `viewports` — widths
-- `pages` — optional list of `{ url, setup? }`
-- `rules` — per rule: severity and options (near-miss window, groupings,
-  optional limits)
-- `exclude` — selectors whose subtrees are skipped entirely
-- `ignoreFile`, `baselineFile` — paths
-- `browser` — profile / cdp / headless defaults
+- `viewports`: widths
+- `pages`: an optional list of `{ url, setup? }`
+- `rules`: severity and options per rule (near-miss window, groupings, optional
+  limits)
+- `exclude`: selectors whose subtrees are skipped entirely
+- `ignoreFile`, `baselineFile`: paths
+- `browser`: profile, CDP, and headless defaults
 
-A missing config means sensible defaults with all four rules on.
+Without a config, uilint uses defaults with all four rules on.
 
 ## Agent integration
 
-The repo ships a short instruction block (and optionally a Claude Code skill)
-to drop into the agent's instructions:
+The repo ships a short instruction block to drop into the agent's
+instructions, and optionally a Claude Code skill with the same content:
 
 - after changing UI, run `uilint` on the affected pages
-- fix every error by changing the UI code; re-run until exit 0
+- fix every error by changing the UI code, and re-run until it exits with 0
 - never edit `uilint.ignore`, `uilint.baseline.json`, or the config
 - if a violation looks intentional, stop and tell the human, quoting it
 
 ## Stack
 
-- TypeScript, Node 20+, Playwright (Chromium), published as an npm CLI
-  (`npx uilint`). Measurement runs as a script injected into the page;
-  rule logic runs in Node on the extracted boxes so it is unit-testable
-  without a browser.
-- Works on any web page; React-specific info is a bonus layer.
+uilint is a TypeScript CLI for Node 20+, built on Playwright with Chromium and
+published to npm (`npx uilint`). A script injected into the page does the
+measuring. Rule logic runs in Node on the extracted boxes, so it can be unit
+tested without a browser. uilint works on any web page; React component info
+is an extra layer on top.
 
 ## Success
 
-- **Fixture suite** in the repo: small pages each seeded with one known defect
-  per rule (3px misaligned label across different parents, one 14px gap among
-  16px gaps, a 1px-taller button, clipped text at 375px, etc.) — each must be
-  caught, with the right locator.
-- **Clean suite**: well-built pages (including a few screens from the owner's
-  app they consider correct) — must produce **zero errors**. This is the
-  primary bar; tune the defaults against it.
-- Deterministic: running twice on the same page gives byte-identical output.
-- On a real screen the agent built, the owner agrees the errors reported are
-  real problems.
+- A fixture suite in the repo: small pages, each seeded with one known defect
+  (a label 3px out of line with one in a different parent, one 14px gap among
+  16px gaps, a button 1px taller than its neighbors, text clipped at 375px, and
+  so on). uilint must catch each one and point at the right element.
+- A clean suite of well-built pages, including a few screens from the owner's
+  app that the owner considers correct. These must produce zero errors. This is
+  the main bar, and the defaults are tuned against it.
+- Running twice on the same page gives byte-identical output.
+- On a real screen the agent built, the owner agrees that the reported errors
+  are real problems.
 
 ## Left to the builder
 
-- exact default numbers for every window and grouping threshold (tune on
-  fixtures; precision first)
-- the algorithms for "related", "same role" and "look alike" groupings
+- exact default numbers for every window and grouping threshold, tuned on the
+  fixtures with precision first
+- the algorithms that decide when boxes are related, play the same role, or
+  look alike
 - the ignore file's exact syntax
 - how fingerprints are computed
-- how React component/source info is extracted across React 18 and 19
+- how React component and source info is read across React 18 and 19
 - internal architecture and test setup
