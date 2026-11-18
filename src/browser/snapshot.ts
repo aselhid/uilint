@@ -5,7 +5,8 @@ import type { Box, DriverPage, Snapshot } from '../types.js';
 let source: string | undefined;
 
 async function measureSource(): Promise<string> {
-  source ??= await readFile(new URL('./measure.page.js', import.meta.url), 'utf8');
+  // Evaluated inside `( … )(options)`, so a trailing ';' would be a syntax error.
+  source ??= (await readFile(new URL('./measure.page.js', import.meta.url), 'utf8')).trim().replace(/;$/, '');
   return source;
 }
 

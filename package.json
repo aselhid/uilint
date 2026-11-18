@@ -12,7 +12,7 @@
     "uilint": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/build.mjs",
     "test": "vitest run",
     "dev": "tsx src/cli.ts"
   },
