@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>uilint demo stage</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --chrome: #1f2630; --line: #2d3540; --text: #e6edf3; --dim: #8b96a3;
+    --red: #ff6b6b; --blue: #6cb6ff; --green: #56d364; --yellow: #e3b341; --accent: #a78bfa;
+    --mono: Menlo, "SF Mono", monospace; --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); }
+  .window { position: absolute; top: 40px; height: 880px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+  .titlebar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--chrome); border-bottom: 1px solid var(--line); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #3a424d; }
+  .title { margin-left: 12px; color: var(--dim); font-size: 14px; }
+  .address { margin-left: 12px; flex: 1; height: 28px; border-radius: 8px; background: #0f141a; color: var(--dim); font-size: 14px; display: flex; align-items: center; padding: 0 12px; gap: 10px; }
+  .chip { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--text); background: #2a3340; border-radius: 6px; padding: 3px 8px; }
+  #browser { left: 40px; width: 960px; }
+  #viewport { position: absolute; top: 44px; left: 0; right: 0; bottom: 0; background: #e9ebef; overflow: hidden; }
+  #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #world iframe { position: absolute; left: 0; top: 0; border: 0; background: #fff; visibility: hidden; }
+  #overlay { position: absolute; inset: 0; pointer-events: none; }
+  #diff { position: absolute; inset: 0; background: #0f141a; padding: 28px 32px; font-family: var(--mono); font-size: 15px; line-height: 24px; opacity: 0; }
+  #diff h3 { font-family: var(--sans); font-size: 18px; font-weight: 600; margin-bottom: 18px; color: var(--text); }
+  #diff .file { color: var(--dim); margin-top: 16px; }
+  #diff .del { color: var(--red); white-space: pre; }
+  #diff .add { color: var(--green); white-space: pre; }
+  #terminal { left: 1024px; width: 856px; }
+  #term { position: absolute; top: 44px; left: 0; right: 0; bottom: 0; padding: 18px 20px; overflow: hidden; }
+  #termtext { font-family: var(--mono); font-size: 13px; line-height: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #termtext .prompt { color: var(--green); }
+  #termtext .active { background: rgba(167,139,250,.16); box-shadow: -4px 0 0 var(--accent); display: inline-block; width: 100%; }
+  #termtext .cursor { background: var(--text); color: var(--bg); }
+  #caption { position: absolute; left: 40px; right: 40px; top: 944px; height: 96px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 30px; line-height: 40px; font-weight: 500; letter-spacing: -0.2px; }
+  .card-full { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; opacity: 0; }
+  .card-full h1 { font-size: 96px; letter-spacing: -2px; font-weight: 700; }
+  .card-full p { font-size: 32px; color: var(--dim); max-width: 1300px; text-align: center; line-height: 46px; }
+  .card-full ul { list-style: none; font-size: 32px; line-height: 56px; text-align: center; }
+  .card-full code { font-family: var(--mono); font-size: 30px; color: var(--accent); }
+  .tag { position: absolute; font-family: var(--mono); font-size: 14px; font-weight: 600; padding: 3px 8px; border-radius: 6px; white-space: nowrap; color: #0d1117; }
+</style>
+</head>
+<body>
+  <div id="browser" class="window">
+    <div class="titlebar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <div class="address"><span>localhost:5173</span><span id="vpchip" class="chip">1280px</span></div></div>
+    <div id="viewport"><div id="world"></div><div id="overlay"></div><div id="diff"></div></div>
+  </div>
+  <div id="terminal" class="window">
+    <div class="titlebar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="title">agent's terminal</span></div>
+    <div id="term"><div id="termtext"></div></div>
+  </div>
+  <div id="caption"></div>
+  <div id="titlecard" class="card-full">
+    <h1>uilint</h1>
+    <p>A layout linter for coding agents. It measures the rendered page and reports near misses in spacing, alignment, size and overflow, as plain text.</p>
+  </div>
+  <div id="endcard" class="card-full">
+    <h1>uilint</h1>
+    <ul>
+      <li>Reports only near misses: 3px off is a mistake, 40px off is a choice.</li>
+      <li>Plain text output, no screenshots to pay for.</li>
+      <li>Exit code 1 until the layout is right.</li>
+    </ul>
+    <p><code>npx uilint http://localhost:3000/</code></p>
+  </div>
+<script src="stage.js"></script>
+</body>
+</html>
