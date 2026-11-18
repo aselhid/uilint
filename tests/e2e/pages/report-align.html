@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Report alignment</title>
+<style>
+  body { margin: 0; font-family: Arial, sans-serif; }
+  .bar { position: fixed; top: 0; left: 0; right: 0; height: 120px; background: #fff; }
+  .bar .peer { position: absolute; left: 40px; width: 160px; height: 24px; background: #888; }
+  .bar .a { top: 8px; } .bar .b { top: 40px; }
+  .bar .off { position: absolute; left: 43px; top: 72px; width: 160px; height: 24px; background: #0000ff; }
+  main { padding: 400px 0 40px; }
+  .row { margin-left: 80px; width: 200px; height: 30px; margin-bottom: 12px; background: #888; }
+  .row.off { margin-left: 83px; background: #00ff00; }
+</style></head>
+<body>
+  <div class="bar" role="banner"><div class="peer a"></div><div class="peer b"></div><div class="off"></div></div>
+  <main>
+    <div class="row"></div>
+    <div class="row"></div>
+    <div class="row off"></div>
+    <div class="row"></div>
+  </main>
+</body></html>

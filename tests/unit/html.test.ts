@@ -61,6 +61,18 @@ it('outlines the offender red and its peers blue', () => {
   expect(html).toContain('3px off');
 });
 
+it("keeps the label off the element and the ones it was compared with", () => {
+  const html = setup();
+  const nums = (m: RegExpMatchArray) => [m[1], m[2], m[3], m[4]].map(Number);
+  const [lx, ly, lw, lh] = nums(html.match(/<g class="label"><rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/)!);
+  const peers = [...html.matchAll(/<rect class="(?:peer|offender)" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map(nums);
+  expect(peers.length).toBeGreaterThan(0);
+  for (const [px, py, pw, ph] of peers) {
+    const overlaps = lx < px + pw && px < lx + lw && ly < py + ph && py < ly + lh;
+    expect(overlaps).toBe(false);
+  }
+});
+
 it('draws a wireframe when the adapter has no screenshots', () => {
   const html = setup({ png: null });
   expect(html).not.toContain('data:image/png');

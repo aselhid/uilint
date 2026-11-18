@@ -66,8 +66,7 @@ function shapeSvg(s: Shape, crop: Rect): string {
     const r = s.rect;
     return `<rect class="shade" x="${n(r.x)}" y="${n(r.y)}" width="${n(r.width)}" height="${n(r.height)}"/>${label(s.label, r, crop)}`;
   }
-  const anchor = { x: Math.min(s.x1, s.x2), y: Math.min(s.y1, s.y2), width: Math.abs(s.x2 - s.x1), height: Math.abs(s.y2 - s.y1) };
-  return `<line class="edge" x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}"/>${label(s.label, anchor, crop)}`;
+  return `<line class="edge" x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}"/>${label(s.label, s.labelNear, crop)}`;
 }
 
 function viewSvg(v: View, p: Prepared): string {

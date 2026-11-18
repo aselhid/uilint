@@ -43,7 +43,7 @@ it('measures a gap between text blocks on their layout boxes', () => {
 it('draws the peers left edge as a line for a left-edge miss', () => {
   const off = box({ x: 23, y: 100, w: 80, h: 20 }), peer = box({ x: 20, y: 0, w: 120, h: 20 });
   const [v] = buildViews([hit({ rule: 'alignment', check: 'left', measured: 3 }, [off], [peer])], page());
-  expect(measure(v.shapes)).toEqual([{ kind: 'line', x1: 20, y1: 0, x2: 20, y2: 120, label: '3px off' }]);
+  expect(measure(v.shapes)).toEqual([{ kind: 'line', x1: 20, y1: 0, x2: 20, y2: 120, label: '3px off', labelNear: off.rect }]);
 });
 
 it('draws a horizontal line for a top-edge miss', () => {

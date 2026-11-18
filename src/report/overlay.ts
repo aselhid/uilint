@@ -8,7 +8,8 @@ export interface PageGeom { width: number; height: number; captured: number }
 export type Shape =
   | { kind: 'outline'; role: 'offender' | 'peer'; rect: Rect }
   | { kind: 'shade'; rect: Rect; label: string }
-  | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; label: string };
+  /** labelNear: the box the label goes beside (the offender), so it never sits on the peers. */
+  | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; label: string; labelNear: Rect };
 
 /** One finding at one viewport: the part of the page to show and what to draw on it. */
 export interface View { viewport: number; crop: Rect; shapes: Shape[]; belowCapture: boolean }
@@ -88,8 +89,8 @@ function measurement(hit: Hit, page: PageGeom, crop: Rect): Shape | null {
     const u = union([...hit.offenders, ...peers].map((x) => x.rect));
     const label = `${px(f.measured)} off`;
     return X_EDGES.has(edge)
-      ? { kind: 'line', x1: at, y1: u.y, x2: at, y2: u.y + u.height, label }
-      : { kind: 'line', x1: u.x, y1: at, x2: u.x + u.width, y2: at, label };
+      ? { kind: 'line', x1: at, y1: u.y, x2: at, y2: u.y + u.height, label, labelNear: a.rect }
+      : { kind: 'line', x1: u.x, y1: at, x2: u.x + u.width, y2: at, label, labelNear: a.rect };
   }
   return null;
 }
