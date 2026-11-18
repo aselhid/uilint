@@ -4,13 +4,13 @@
 [![Node ≥ 20](https://img.shields.io/badge/node-%E2%89%A520-339933.svg)](package.json)
 [![Playwright](https://img.shields.io/badge/browser-Playwright%20%2F%20Chromium-2EAD33.svg)](https://playwright.dev)
 
-A layout linter for coding agents. It measures the rendered page and reports near-miss spacing, alignment, size and overflow problems as plain text, with an exit code the agent can act on.
+A layout linter for coding agents. It measures the rendered page and reports near-miss spacing, alignment, size and overflow problems, and text too low in contrast to read, as plain text, with an exit code the agent can act on.
 
 [![uilint demo: an agent runs uilint on a React dashboard, gets 4 errors, fixes them, and reruns to a clean exit 0](docs/media/uilint-demo.gif)](docs/media/uilint-demo.mp4)
 
 In the demo above (56s, [full-quality mp4](docs/media/uilint-demo.mp4)), an agent runs uilint on a React dashboard it built. uilint reports a label 3px out of line with the numbers under it, a 20px gap among 16px gaps on a phone, a button 1px taller than its neighbors, and a page that scrolls 58px sideways at 375px. The agent fixes each one at the JSX line uilint named, reruns, and gets exit code 0. Everything in the video is real uilint output; [`demo/`](demo/) regenerates it. To check the same findings yourself, `--report` draws each one on a screenshot of the page ([visual report](#visual-report)).
 
-uilint loads a web page in a real browser, measures where every visible element landed, and reports small layout mistakes as text: spacing that is slightly off, edges a few pixels out of line, near-identical elements with slightly different sizes, and clipped or overflowing content. It is meant to be run by a coding agent after it changes UI, so the agent gets a deterministic list of problems to fix instead of guessing from screenshots.
+uilint loads a web page in a real browser, measures where every visible element landed, and reports small layout mistakes as text: spacing that is slightly off, edges a few pixels out of line, near-identical elements with slightly different sizes, and clipped or overflowing content. It also checks that text is readable against what is actually painted behind it. It is meant to be run by a coding agent after it changes UI, so the agent gets a deterministic list of problems to fix instead of guessing from screenshots.
 
 uilint only flags near misses. Two edges 3px apart are almost certainly a mistake, while two edges 40px apart are almost certainly intended, so uilint reports the first and ignores the second. The same goes for a 14px gap among 16px gaps (reported) and a 64px gap above a hero (ignored). This keeps false alarms low without anyone annotating the page.
 
@@ -64,7 +64,7 @@ npx uilint http://localhost:3000/dashboard --report uilint-report.html
 
 [![uilint visual report: each finding as a card with its text, and a cropped screenshot per viewport with the element to fix outlined in red, the elements it was compared with in blue, and the measurement drawn on](docs/media/uilint-report.png)](docs/media/uilint-report.png)
 
-Each card repeats the finding exactly as the terminal prints it, then shows the affected part of the page at every width where it happens. The element to fix is outlined in red, the elements that set the expected value in blue, and the measurement is drawn where it was taken: a shaded gap labelled `20px · siblings 16px`, a dashed edge line labelled `3px off`, a `+58px` strip for a page that scrolls sideways. Click a picture to see the whole page.
+Each card repeats the finding exactly as the terminal prints it, then shows the affected part of the page at every width where it happens. The element to fix is outlined in red, the elements that set the expected value in blue, and the measurement is drawn where it was taken: a shaded gap labelled `20px · siblings 16px`, a dashed edge line labelled `3px off`, a `+58px` strip for a page that scrolls sideways, and a label such as `2.32:1 · min 4.5:1` beside text that is too low in contrast (the text itself isn't shaded, so its colours show as they are). Click a picture to see the whole page.
 
 The screenshots are taken right after uilint measures, in the same browser session, so the outlines sit on the pixels uilint measured. A few things to know:
 
@@ -109,6 +109,18 @@ Rules compare only boxes you can see: text, images and icons, form controls, and
 | `overflow` | `spill` | a box sticking out of its container (text and controls are errors, decoration such as a badge dot is a warning) |
 | `overflow` | `hscroll` | the page scrolls sideways |
 | `overflow` | `overlap` | text or controls overlapping each other |
+| `contrast` | `ratio` | text, or the value typed in a form field, below the WCAG 2.x contrast minimum: 4.5:1, or 3:1 for large text (24px, or 18.66px bold) |
+| `contrast` | `placeholder` | a form field's placeholder below the same minimum |
+| `contrast` | `unverified` | text whose background uilint can't know, such as an image or video (a warning by default) |
+
+uilint only flags near misses for layout. Contrast is different: WCAG sets a hard minimum, so any text below it is reported, with the colours it measured:
+
+```
+error  contrast  text contrast 2.32:1, needs 4.5:1 (#aaaaaa on #ffffff)  @375,768,1280
+  p.meta "Updated 3 days ago"  <OrderRow>  src/orders/OrderRow.tsx:14
+```
+
+How the contrast rule finds the background: at the middle of each run of text, it asks the browser which elements are painted under that point, in paint order, and blends their background colours from the text down until it reaches an opaque one. Transparency and `opacity` are blended the way the browser blends them, and an absolutely positioned backdrop behind a heading counts as the heading's background. A gradient is checked against its worst colour stop. When something under the text has colours CSS can't tell, such as an image, video, canvas, `backdrop-filter`, blend mode or `filter`, uilint doesn't guess: it reports a `contrast/unverified` warning that names the reason. Text in disabled controls (`:disabled`, `aria-disabled="true"`) is skipped. Form fields are checked for the value they show, or their placeholder when they're empty. To see under the first screen, uilint scrolls the page while it checks contrast and scrolls back afterwards, after any `--report` screenshot is taken. With `contrast: 'off'` this check doesn't run at all.
 
 Every rule runs at each viewport width (375, 768 and 1280 by default). Before measuring, uilint waits for the network to go quiet and for fonts to load, disables animations and transitions, and measures repeatedly until two measurements in a row match.
 
@@ -149,6 +161,9 @@ Each rule takes options, listed below with their defaults. `min` and `max` set t
 | `spacing` | `min: 0.5`, `max: 4`, `maxRatio: 0.25`, `maxGap: 96`, `maxInset: 64`, `minTextGap` (unset), `scale` (unset) |
 | `size-consistency` | `min: 0.5`, `max: 4`, `maxRatio: 0.25`, `maxGap: 48` |
 | `overflow` | `tolerance: 1`, `clipped: 'error'`, `ellipsis: 'warn'`, `spill: 'error'`, `spillDecorative: 'warn'`, `hscroll: 'error'`, `overlap: 'error'` |
+| `contrast` | `level: 'AA'`, `ratio: 'error'`, `placeholder: 'error'`, `unverified: 'warn'` |
+
+For `contrast`, `level: 'AAA'` raises the minimums to 7:1, and 4.5:1 for large text.
 
 `maxGap` is how far apart two boxes can be and still count as neighbors. `minColumnPeers` is how many boxes must already share an edge before a box nearly on it is reported; two unrelated boxes often land a few pixels apart by chance. Set `scale: 4` under `spacing` if your design uses a 4px grid and you want every gap checked against it.
 

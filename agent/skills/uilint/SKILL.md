@@ -1,6 +1,6 @@
 ---
 name: uilint
-description: Use after changing UI in a React web app (components, styles, layout, spacing) to check the rendered page for near-miss spacing, alignment, size and overflow problems with uilint, and fix what it reports before calling the work done.
+description: Use after changing UI in a React web app (components, styles, layout, spacing) to check the rendered page for near-miss spacing, alignment, size and overflow problems and low text contrast with uilint, and fix what it reports before calling the work done.
 ---
 
 ## UI checks with uilint
@@ -33,6 +33,8 @@ error  spacing  gap 14px, siblings use 16px  @375,1280  (×3)
 - First line: severity, rule, what was measured and what was expected, the viewport widths where it happens, and `(×N)` when the same problem repeats on N similar elements.
 - Indented lines: the elements to fix, each as a CSS selector, a snippet of its text, its React component and source file. A spacing problem names the boxes on both sides of the gap.
 - `aligned with:` or `compared with:` names the elements it was measured against. Those set the expected value, so change the reported element to match them, not the other way round.
+
+A `contrast` error names the colours it measured, for example `(#aaaaaa on #ffffff)`. Fix it by darkening or lightening the text or its background, using a colour from the project's palette or design tokens. A `contrast` `unverified` warning means the text sits on something uilint can't measure, such as an image. Don't change anything for it; mention it in your summary so the human can check it in the visual report.
 
 Warnings (`warn`) don't fail the run. Fix them when the fix is obvious, otherwise mention them.
 

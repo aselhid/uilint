@@ -29,6 +29,8 @@ error  spacing  gap 14px, siblings use 16px  @375,1280  (×3)
 - Indented lines: the elements to fix, each as a CSS selector, a snippet of its text, its React component and source file. A spacing problem names the boxes on both sides of the gap.
 - `aligned with:` or `compared with:` names the elements it was measured against. Those set the expected value, so change the reported element to match them, not the other way round.
 
+A `contrast` error names the colours it measured, for example `(#aaaaaa on #ffffff)`. Fix it by darkening or lightening the text or its background, using a colour from the project's palette or design tokens. A `contrast` `unverified` warning means the text sits on something uilint can't measure, such as an image. Don't change anything for it; mention it in your summary so the human can check it in the visual report.
+
 Warnings (`warn`) don't fail the run. Fix them when the fix is obvious, otherwise mention them.
 
 For a modal, menu or other state behind a click, write a small setup script and pass it with `--setup` (see the uilint README).
