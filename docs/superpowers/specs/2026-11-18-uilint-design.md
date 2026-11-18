@@ -91,8 +91,9 @@ Any of these makes uilint a failure even if every rule works as specified.
 uilint <url> [<url> ...]
   --config <path>        default: ./uilint.config.ts (or .json)
   --viewport <w>[,<w>]   override configured widths
-  --profile <dir>        launch Chrome with an existing user-data dir (reuse login)
-  --cdp <port|url>       attach to an already-running Chrome instead of launching
+  --driver <name|path>   browser adapter: playwright (default), betterwright, or a module path
+  --profile <dir>        playwright: launch with an existing user-data dir (reuse login)
+  --cdp <port|url>       playwright: attach to an already-running Chrome instead of launching
   --setup <file.ts>      script run before measuring (open modal, fill form, ...)
   --json                 machine-readable output instead of text
   --max <n>              cap number of reported violations (default 50)
@@ -117,6 +118,34 @@ uilint supports the same routes the agent already uses for verification:
 
 The config can also list pages, each with its own URL and optional setup.
 Running `uilint` with no arguments lints that set.
+
+`--profile`, `--cdp` and the setup module format above belong to the
+Playwright adapter. Other adapters have their own session and setup formats
+(see Browser adapters).
+
+### Browser adapters
+
+uilint talks to the browser through a small adapter, so teams can use the
+browser tooling they already have. An adapter can open a URL at a given
+viewport size, report the final URL and HTTP status of the main document, run
+a script in the page and return JSON, inject a style tag, wait for the network
+to go quiet, run a setup file, and close. Everything after measurement (rules,
+report, ignore file, baseline) is the same for every adapter.
+
+- `playwright` is built in and the default.
+- `betterwright` is built in and loads the optional `betterwright` package only
+  when selected. BetterWright doesn't expose its page object, so the adapter
+  sends each step as a snippet through `bw.run()`, and a setup file is a
+  snippet file in BetterWright's format. Its own persistent profile replaces
+  `--profile`. If its network policy blocks the dev server's host, the adapter
+  takes an option to allow it. When its `stealthRuntimeFix` mode is on, page
+  scripts can't read React's fields on DOM nodes, so violations come without
+  component names or source files, and the report says so.
+- Any other tool plugs in as a module path that exports
+  `createDriver(options)`. The repo ships a conformance test suite an adapter
+  author can run, and the README documents the contract.
+
+The near-miss fixtures run against every built-in adapter.
 
 ### Making measurements stable
 
@@ -287,7 +316,8 @@ reads opt-outs from the page's own markup.
   limits)
 - `exclude`: selectors whose subtrees are skipped entirely
 - `ignoreFile`, `baselineFile`: paths
-- `browser`: profile, CDP, and headless defaults
+- `driver`: the adapter name or module path, plus its options (for Playwright:
+  profile, CDP endpoint, channel, headless)
 
 Without a config, uilint uses defaults with all four rules on.
 
@@ -303,8 +333,9 @@ instructions, and optionally a Claude Code skill with the same content:
 
 ## Stack
 
-uilint is a TypeScript CLI for Node 20+, built on Playwright with Chromium and
-published to npm (`npx uilint`). A script injected into the page does the
+uilint is a TypeScript CLI for Node 20+, published to npm (`npx uilint`). It
+uses Playwright with Chromium by default and other browser tools through
+adapters. A script injected into the page does the
 measuring. Rule logic runs in Node on the extracted boxes, so it can be unit
 tested without a browser. uilint works on any web page; React component info
 is an extra layer on top.
