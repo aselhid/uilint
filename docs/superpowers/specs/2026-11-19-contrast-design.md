@@ -1,6 +1,6 @@
 # uilint contrast rule: design
 
-Date: 2026-11-19. Status: draft, awaiting approval.
+Date: 2026-11-19. Status: approved (user's answers to the open questions recorded under "Decisions").
 
 ## Why
 
@@ -25,7 +25,7 @@ warn   contrast  text over a background image, contrast not checked  @375,768,12
 - Contrast of non-text things (icons, borders, focus rings, WCAG 1.4.11). Possible later.
 - Reading pixels from screenshots (see approaches).
 - Text inside `<svg>`, `<canvas>` and iframes (uilint doesn't measure those today).
-- Placeholder text and typed values inside `<input>`/`<textarea>`/`<select>` (not text nodes, so uilint has no text box for them). Deferred, see open questions.
+- APCA. WCAG 2.x only (user's decision).
 - Changing any other rule.
 
 ## Anti-goals
@@ -58,7 +58,7 @@ The measure script keeps the text-box slots of its last pass (owner element, tex
 
 ### Which text
 
-Every `text` box uilint measures (visible, non-sr-only text nodes), except:
+Every `text` box uilint measures (visible, non-sr-only text nodes), plus the text shown inside form controls (see "Form controls" below), except:
 
 - text inside a disabled control: an ancestor-or-self matching `:disabled` or `[aria-disabled="true"]` (WCAG exempts inactive components);
 - text whose colour has alpha 0 and no `background-clip: text` (invisible on purpose).
@@ -71,7 +71,7 @@ Each text box groups text nodes that may have different colours (`<p>Hi <a>link<
 
 ### Background at a point
 
-From the hit-test stack, find the text node's parent element; everything after it in the stack paints below the text. Walk those layers top-down:
+From the hit-test stack, find the text node's parent element. That element's own background and everything after it in the stack paint below the text. Walk those layers top-down, starting with the parent element itself:
 
 1. A layer that is `img`, `picture`, `video`, `canvas`, `svg` (or inside one), `iframe`, `object` or `embed` → unverified (`image`, `video`, `canvas`, `embedded content`).
 2. A layer with `background-image` other than `none`: a `url()` → unverified (`image`); a gradient → see gradients below.
@@ -83,24 +83,35 @@ Composite the collected layers bottom-up with exact group opacity: an element wi
 
 `text-shadow` and `-webkit-text-stroke` are ignored (builder's call: they rarely rescue contrast on a solid background and over an image the result is unverified anyway). Gradient text (`background-clip: text` with transparent colour) → unverified (`gradient text`).
 
-**Gradients (pending the user's answer, see open questions):** proposed: parse the colour stops from the computed `background-image`; if every stop parses, the background is each stop in turn (composited as above) and the worst ratio counts, printed as `... (#999999 on gradient, worst stop #f5f5f5)`. A gradient that doesn't parse → unverified (`gradient`).
+**Gradients (user's decision: worst stop):** parse the colour stops from the computed `background-image`; if every stop parses, the background is each stop in turn (composited as above) and the worst ratio counts, printed as `... (#999999 on gradient, worst stop #f5f5f5)`. A gradient that doesn't parse → unverified (`gradient`).
 
 ### Colours
 
 Computed colours are usually `rgb()`/`rgba()`; those are parsed exactly. Anything else (`oklch()`, `lab()`, `color(display-p3 …)`, which Tailwind v4 emits) is converted through a 1×1 canvas (`fillStyle` → `getImageData`), cached per string. Output colours print as `#rrggbb` (alpha already composited away).
 
+### Form controls: values and placeholders
+
+User's decision: placeholder text and typed values are checked in v1. uilint has no text box for them (they aren't text nodes), so the pass checks them on the control's own box:
+
+- Which controls: `<textarea>`, `<select>`, and `<input>` of a type that shows text (`text`, `search`, `email`, `url`, `tel`, `password`, `number`, and the button types `submit`, `button`, `reset`, which show their value). Other types (checkbox, radio, range, color, file, date pickers, hidden) are skipped. Disabled controls are skipped, as for text.
+- What is shown: if the control has a non-empty value (for `<select>`, the selected option's text), that is a `value` sample, coloured by the control's computed `color` and sized by its own font. If the value is empty and the `placeholder` attribute is non-empty, it is a `placeholder` sample, coloured and sized by `getComputedStyle(el, '::placeholder')`. An empty control without a placeholder has nothing to check.
+- Where: one sample at the centre of the control's content box (border box minus borders and padding). The background is found exactly as for text, starting with the control itself in the hit-test stack (so its own background counts, then whatever is behind it if that is transparent).
+- Reported: a value below its minimum is a `ratio` finding with the message `input text contrast …`; a placeholder below its minimum is a separate check, `placeholder`, with the message `placeholder contrast 2.32:1, needs 4.5:1 (#aaaaaa on #ffffff)`, so it can be configured or ignored on its own.
+
 ### What the snapshot carries
 
-`Box` gains one optional field, set only on text boxes when the pass ran:
+`Box` gains one optional field, set only on text boxes and checked form controls when the pass ran:
 
 ```ts
 contrast?: {
   /** One per sample, document order, at most 32. */
-  samples: { ratio: number; large: boolean; fg: string; bg: string; gradient: boolean }[];
+  samples: { ratio: number; large: boolean; fg: string; bg: string; gradient: boolean; what: 'text' | 'value' | 'placeholder' }[];
   /** Why some samples couldn't be measured; null if all were. */
   unverified: 'image' | 'gradient' | 'gradient text' | 'video' | 'canvas' | 'embedded content' | 'backdrop-filter' | 'blend mode' | 'filter' | 'hidden' | null;
 }
 ```
+
+For form controls the samples also say what they measured: `what: 'text' | 'value' | 'placeholder'` (`'text'` for ordinary text boxes).
 
 `hidden`: the text's own element wasn't in the hit-test stack at its own position (covered by something that captures hit-testing even with pointer-events forced, or moved by a sticky ancestor while scrolled).
 
@@ -112,40 +123,45 @@ Optional means existing `Box` fixtures and tests are untouched.
 
 | check | reports | default severity |
 |---|---|---|
-| `ratio` | the worst sample's ratio is below its minimum | `error` (rule severity) |
-| `unverified` | no measured sample fails, but at least one couldn't be measured | `warn` (pending the user's answer) |
+| `ratio` | the worst text or input-value sample is below its minimum | `error` (rule severity) |
+| `placeholder` | a control's placeholder is below its minimum | `error` (rule severity) |
+| `unverified` | no measured sample fails, but at least one couldn't be measured; the message names the reason | `warn` (user's decision) |
 
 - For `ratio`, the worst sample is the one with the lowest `ratio / minimum` (ties: first). `measured` = ratio truncated to 2 decimals, `expected` = minimum. Message: `text contrast 2.85:1, needs 4.5:1 (#999999 on #ffffff)`; large text says `needs 3:1 for large text`.
 - A box with a failing measured sample reports `ratio` even if other samples are unverified.
-- Options, with defaults: `level: 'AA'`, `ratio: 'error'`, `unverified: 'warn'`. `ratio`/`unverified` take `'off' | 'warn' | 'error'`, capped by the rule severity exactly like `overflow`'s sub-checks.
-- Config validation: `contrast` joins `RULE_NAMES`; `ratio` and `unverified` join the ignore file's check names.
+- Options, with defaults: `level: 'AA'`, `ratio: 'error'`, `placeholder: 'error'`, `unverified: 'warn'`. `ratio`/`placeholder`/`unverified` take `'off' | 'warn' | 'error'`, capped by the rule severity exactly like `overflow`'s sub-checks.
+- Config validation: `contrast` joins `RULE_NAMES`; `ratio`, `placeholder` and `unverified` join the ignore file's check names.
 - Merging, collapsing, fingerprints and baselines need no change: fingerprints use rule, check and elements, never colours, so fixing a colour keeps the fingerprint.
 
 ## Visual report
 
 `overlay.ts` gets one new shape, `{ kind: 'tag'; label; near: Rect }`: a label placed beside a box with the existing label placement (clear of outlines and other labels), no shading, because shading the text would change the very contrast being shown. For contrast findings the offender's text rect is outlined in red and tagged:
 
-- `ratio`: `2.85:1 · min 4.5:1`
+- `ratio`, `placeholder`: `2.85:1 · min 4.5:1`
 - `unverified`: `not checked: image` (the reason)
 
 ## Docs and agent instructions
 
-- README: rules table rows for `contrast/ratio` and `contrast/unverified`, the options table row, a short paragraph on how the background is found and what "unverified" means, and the one-line note that the page is scrolled during the pass.
+- README: rules table rows for `contrast/ratio`, `contrast/placeholder` and `contrast/unverified`, the options table row, a short paragraph on how the background is found and what "unverified" means, and the one-line note that the page is scrolled during the pass.
 - `agent/INSTRUCTIONS.md` and `agent/skills/uilint/SKILL.md`: one bullet: fix a contrast error by changing the text or background colour named in the message to a colour from the project's palette; an `unverified` warning means check it by eye and mention it.
 
 ## Testing
 
 - Unit: luminance/ratio maths against known pairs (#777/#fff = 4.48, #000/#fff = 21), large-text classification, the rule's selection of the worst sample and severity capping, overlay shapes.
-- In-browser (`tests/browser/contrast.test.ts`, real Chromium): solid parent background; semi-transparent layers over a colour; opacity on the text, on a parent with no background, and on a parent with an opaque background (group opacity); positioned sibling background (hero) behind text; image / gradient / video / canvas / backdrop-filter → unverified; disabled button skipped; `pointer-events: none` overlay below text; text below the first viewport; shadow DOM; `oklch()` colours; large-text thresholds.
-- E2E: a `bad/contrast-low.html` defect fixture in the fixture table; the clean fixtures stay error-free; determinism test unchanged.
+- In-browser (`tests/browser/contrast.test.ts`, real Chromium): solid parent background; semi-transparent layers over a colour; opacity on the text, on a parent with no background, and on a parent with an opaque background (group opacity); positioned sibling background (hero) behind text; image / gradient / video / canvas / backdrop-filter → unverified; disabled button skipped; `pointer-events: none` overlay below text; text below the first viewport; shadow DOM; `oklch()` colours; large-text thresholds; placeholders (own fixtures: low-contrast placeholder, good placeholder, placeholder hidden by a value, disabled input) and input/select values.
+- E2E: `bad/contrast-low.html` and `bad/contrast-placeholder.html` defect fixtures in the fixture table; the clean fixtures stay error-free; determinism test unchanged.
 
-## Open questions for the user
+## Decisions
 
-1. **Formula:** WCAG 2.x ratio (proposed: the published standard, what designers and lawyers check against) or APCA (WCAG 3 draft, better perceptually, not yet a standard, thresholds depend on font size and weight tables)?
-2. **Defaults:** AA (4.5 / 3) proposed, with `level: 'AAA'` available. Should `ratio` be an `error` by default like every other rule (proposed), or a `warn` so existing projects don't start failing on upgrade?
-3. **Unknown backgrounds** (image, video, canvas, backdrop-filter, blend mode, filter): a `warn` finding per element (proposed: visible to the agent, never fails a run, can be set to `off`), a single per-page note, or silent?
-4. **Gradients:** check against the worst colour stop (proposed: subtle card gradients are common and checkable; it can over-report when text sits over the light end of a strong gradient) or treat every gradient as unverified?
-5. **Placeholders and disabled text:** proposed: disabled controls skipped (WCAG exempts them); placeholders and input values not checked in v1. Should placeholders be checked in v1?
+The user answered the open questions on 2026-11-19:
+
+1. Formula: WCAG 2.x contrast ratio (not APCA).
+2. Defaults: AA (4.5:1 normal, 3:1 large), with `level: 'AAA'` available. Low contrast is an `error` by default, like every other rule.
+3. Unknown backgrounds (image, video, canvas, backdrop-filter, blend mode, filter): a `warn` finding per element that names the reason, configurable to `off`.
+4. Gradients: checked against the worst colour stop.
+5. Placeholders: checked in v1, together with typed input values, with their own fixtures and a distinguishable message (see "Form controls"). Disabled controls stay skipped.
+
+Builder's calls (Claude): check name `placeholder` for placeholders, input values under `ratio`; one sample per control at the centre of its content box; `text-shadow`/`-webkit-text-stroke` ignored; sample cap 32 per box; the page is scrolled during the pass and restored.
 
 ## Left to the builder
 
