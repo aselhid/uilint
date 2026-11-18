@@ -159,3 +159,104 @@ it('ignores invisible text', async () => {
   const s = await measure('<p style="color:transparent">Invisible</p>');
   expect(textBox(s, 'Invisible').contrast).toBeUndefined();
 });
+
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+const why = (s: Snapshot, text: string) => textBox(s, text).contrast!.unverified;
+
+it('does not guess over a background image', async () => {
+  const s = await measure(`<div style="background:#000 url(${PNG});padding:8px"><span style="color:#fff">Over photo</span></div>`);
+  expect(why(s, 'Over photo')).toBe('image');
+  expect(textBox(s, 'Over photo').contrast!.samples).toEqual([]);
+});
+
+it('does not guess over a positioned img', async () => {
+  const s = await measure(`<div style="position:relative;padding:20px"><img src="${PNG}" style="position:absolute;inset:0;width:100%;height:100%">
+    <h1 style="position:relative;color:#fff;margin:0">Img hero</h1></div>`);
+  expect(why(s, 'Img hero')).toBe('image');
+});
+
+for (const [tag, reason] of [['video', 'video'], ['canvas', 'canvas']] as const) {
+  it(`does not guess over a ${tag}`, async () => {
+    const s = await measure(`<div style="position:relative;padding:20px"><${tag} style="position:absolute;inset:0;width:100%;height:100%"></${tag}>
+      <h1 style="position:relative;color:#fff;margin:0">Over ${tag}</h1></div>`);
+    expect(why(s, `Over ${tag}`)).toBe(reason);
+  });
+}
+
+it('does not guess under a backdrop-filter', async () => {
+  const s = await measure('<div style="backdrop-filter:blur(4px);background:rgba(255,255,255,.3);padding:8px"><span style="color:#fff">Frosted</span></div>');
+  expect(why(s, 'Frosted')).toBe('backdrop-filter');
+});
+
+it('does not guess with a blend mode', async () => {
+  const s = await measure('<p style="mix-blend-mode:difference;color:#fff">Blended</p>');
+  expect(why(s, 'Blended')).toBe('blend mode');
+});
+
+it('does not guess under a filter', async () => {
+  const s = await measure('<div style="filter:invert(1)"><p style="color:#999">Filtered</p></div>');
+  expect(why(s, 'Filtered')).toBe('filter');
+});
+
+it('does not guess for gradient-filled text', async () => {
+  const s = await measure('<p style="background:linear-gradient(90deg,#f00,#00f);-webkit-background-clip:text;background-clip:text;color:transparent">Rainbow</p>');
+  expect(why(s, 'Rainbow')).toBe('gradient text');
+});
+
+it('ignores an image hidden under an opaque panel', async () => {
+  const s = await measure(`<div style="background:url(${PNG});padding:8px"><div style="background:#fff;padding:8px"><span style="color:#000">On panel</span></div></div>`);
+  expect(why(s, 'On panel')).toBeNull();
+  expect(first(s, 'On panel').bg).toBe('#ffffff');
+});
+
+it('checks a gradient at its worst stop', async () => {
+  const s = await measure('<div style="background:linear-gradient(#fff,#ccc);padding:8px"><span style="color:#777">Shaded</span></div>');
+  const c = first(s, 'Shaded');
+  expect(c).toMatchObject({ gradient: true, bg: '#cccccc', fg: '#777777' });
+  expect(c.ratio).toBeCloseTo(2.79, 2);
+});
+
+const control = (s: Snapshot, tag: string) => {
+  const b = s.boxes.find((x) => x.kind === 'control' && x.tag === tag);
+  if (!b) throw new Error(`no ${tag} control`);
+  return b;
+};
+
+it('checks a low-contrast placeholder', async () => {
+  const s = await measure('<style>input::placeholder{color:#bbb}</style><input placeholder="Email" style="color:#000;font-size:16px">');
+  const c = control(s, 'input').contrast!;
+  expect(c.samples).toHaveLength(1);
+  expect(c.samples[0]).toMatchObject({ what: 'placeholder', fg: '#bbbbbb', bg: '#ffffff' });
+  expect(c.samples[0].ratio).toBeLessThan(2);
+});
+
+it('passes a dark enough placeholder', async () => {
+  const s = await measure('<style>input::placeholder{color:#595959}</style><input placeholder="Email">');
+  expect(control(s, 'input').contrast!.samples[0].ratio).toBeGreaterThanOrEqual(4.5);
+});
+
+it('checks the value instead of a placeholder it hides', async () => {
+  const s = await measure('<style>input::placeholder{color:#bbb}</style><input placeholder="Email" value="me@example.com" style="color:#333">');
+  expect(control(s, 'input').contrast!.samples).toEqual([expect.objectContaining({ what: 'value', fg: '#333333' })]);
+});
+
+it('skips disabled inputs', async () => {
+  const s = await measure('<input disabled placeholder="Nope" style="color:#ccc">');
+  expect(control(s, 'input').contrast).toBeUndefined();
+});
+
+it('checks select and button input values', async () => {
+  const s = await measure('<select style="color:#aaa"><option>One</option></select><input type="submit" value="Go" style="color:#aaa;background:#fff">');
+  expect(control(s, 'select').contrast!.samples[0]).toMatchObject({ what: 'value', fg: '#aaaaaa' });
+  expect(control(s, 'input').contrast!.samples[0]).toMatchObject({ what: 'value', fg: '#aaaaaa', bg: '#ffffff' });
+});
+
+it('skips controls that show no text', async () => {
+  const s = await measure('<input type="checkbox"><input>');
+  expect(s.boxes.filter((b) => b.kind === 'control').every((b) => b.contrast === undefined)).toBe(true);
+});
+
+it('uses the control\'s own background behind its placeholder', async () => {
+  const s = await measure('<style>input::placeholder{color:#888}</style><input placeholder="Dark" style="background:#222;border:0">');
+  expect(control(s, 'input').contrast!.samples[0]).toMatchObject({ what: 'placeholder', bg: '#222222' });
+});
