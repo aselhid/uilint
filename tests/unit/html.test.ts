@@ -1,7 +1,7 @@
 import { beforeEach, expect, it } from 'vitest';
 import type { UrlReport } from '../../src/report/format.js';
 import { renderReport, type Capture } from '../../src/report/html.js';
-import { mergeViewports } from '../../src/report/merge.js';
+import { collapseRepeats, mergeViewports } from '../../src/report/merge.js';
 import type { Box, Finding } from '../../src/types.js';
 import { box, resetBoxIds, snap } from '../helpers/boxes.js';
 import { pngHeader } from '../helpers/png.js';
@@ -61,16 +61,55 @@ it('outlines the offender red and its peers blue', () => {
   expect(html).toContain('3px off');
 });
 
-it("keeps the label off the element and the ones it was compared with", () => {
-  const html = setup();
-  const nums = (m: RegExpMatchArray) => [m[1], m[2], m[3], m[4]].map(Number);
-  const [lx, ly, lw, lh] = nums(html.match(/<g class="label"><rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/)!);
-  const peers = [...html.matchAll(/<rect class="(?:peer|offender)" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map(nums);
-  expect(peers.length).toBeGreaterThan(0);
-  for (const [px, py, pw, ph] of peers) {
-    const overlaps = lx < px + pw && px < lx + lw && ly < py + ph && py < ly + lh;
-    expect(overlaps).toBe(false);
-  }
+type R = [number, number, number, number];
+const nums = (m: RegExpMatchArray): R => [m[1], m[2], m[3], m[4]].map(Number) as R;
+const hit = (a: R, b: R) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+const labelsIn = (svg: string) => [...svg.matchAll(/<g class="label"><rect x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map(nums);
+const outlinesIn = (svg: string) => [...svg.matchAll(/<rect class="(?:peer|offender)" x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)].map(nums);
+const firstView = (html: string) => html.match(/<button type="button" class="crop"[\s\S]*?<\/svg>/)![0];
+
+/** Renders one page whose findings are given directly against the given boxes. */
+function custom(boxes: Box[], findings: Finding[], width: number): string {
+  const snapshot = snap(boxes, { viewport: width, scrollWidth: width, clientWidth: width });
+  const violations = collapseRepeats(mergeViewports(url, [{ snapshot, findings }]));
+  return renderReport({ version: '1', reports: [{ url, finalUrl: url, baselined: 0, violations }], notes: [], captures: [{ url, viewport: width, snapshot, png: pngHeader(width, 900) }] });
+}
+
+it('keeps the label off the element and the ones it was compared with', () => {
+  const svg = firstView(setup());
+  const [label] = labelsIn(svg);
+  const outlines = outlinesIn(svg);
+  expect(outlines.length).toBeGreaterThan(0);
+  for (const o of outlines) expect(hit(label, o)).toBe(false);
+});
+
+it('moves a label off neighbouring boxes when the space beside the element is taken', () => {
+  const boxes = [
+    box({ x: 20, y: 100, w: 80, h: 30, kind: 'control', locator: { selector: 'button.a', text: 'Export', components: [], source: null } }),
+    box({ x: 110, y: 100, w: 80, h: 30, kind: 'control', locator: { selector: 'button.b', text: 'Filter', components: [], source: null } }),
+    box({ x: 200, y: 100, w: 80, h: 31, kind: 'control', locator: { selector: 'button.c', text: 'New', components: [], source: null } }),
+  ];
+  const svg = firstView(custom(boxes, [
+    { rule: 'size-consistency', check: 'height', severity: 'error', message: 'height 31px', measured: 31, expected: 30, boxIds: [2], peerIds: [0, 1] },
+  ], 300));
+  const [label] = labelsIn(svg);
+  for (const o of outlinesIn(svg)) expect(hit(label, o)).toBe(false);
+});
+
+it('labels only the repeats that are inside the picture, without overlapping', () => {
+  const row = (i: number, x: number) => [
+    box({ x, y: 20, w: 100, h: 20, kind: 'text', locator: { selector: `div.tile:nth-of-type(${i}) > p.value`, text: '$1', components: [], source: null } }),
+    box({ x: x + 3, y: 60, w: 100, h: 20, kind: 'text', locator: { selector: `div.tile:nth-of-type(${i}) > p.label`, text: 'Revenue', components: [], source: null } }),
+  ];
+  const boxes = [...row(1, 20), ...row(2, 150), ...row(3, 1000)];
+  const f = (o: number, p: number): Finding => ({ rule: 'alignment', check: 'left', severity: 'error', message: 'left edge 3px off from 1 stacked item', measured: 3, expected: 0, boxIds: [o], peerIds: [p] });
+  const html = custom(boxes, [f(1, 0), f(3, 2), f(5, 4)], 1280);
+  expect(html).toContain('(×3)');
+  const svg = firstView(html);
+  const labels = labelsIn(svg);
+  expect(labels).toHaveLength(2);
+  expect(hit(labels[0], labels[1])).toBe(false);
+  for (const l of labels) for (const o of outlinesIn(svg)) expect(hit(l, o)).toBe(false);
 });
 
 it('draws a wireframe when the adapter has no screenshots', () => {

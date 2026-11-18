@@ -38,35 +38,44 @@ function defsFor(p: Prepared): string {
   return `${shot}<g id="wire-${id}"><rect class="wire-bg" x="0" y="0" width="${n(geom.width)}" height="${n(geom.height)}"/>${wire}</g>`;
 }
 
-/** Puts a label beside what it measures, inside the crop where possible, never on top of the measured area. */
-function label(text: string, anchor: Rect, crop: Rect): string {
+const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+/**
+ * Puts a label beside what it measures: inside the crop, clear of every outline and earlier label where it can be.
+ * Returns null when the measured thing is outside the crop (a repeat drawn elsewhere on the page).
+ */
+function label(text: string, anchor: Rect, crop: Rect, taken: Rect[]): string | null {
+  const grown = { x: anchor.x - 1, y: anchor.y - 1, width: anchor.width + 2, height: anchor.height + 2 };
+  if (!overlaps(grown, crop)) return null;
   const w = text.length * 6.6 + 12, h = 18;
-  const fitsX = (x: number) => x >= crop.x && x + w <= crop.x + crop.width;
-  const fitsY = (y: number) => y >= crop.y && y + h <= crop.y + crop.height;
+  const inCrop = (r: Rect) => r.x >= crop.x && r.y >= crop.y && r.x + r.width <= crop.x + crop.width && r.y + r.height <= crop.y + crop.height;
+  const clampX = (x: number) => Math.min(Math.max(x, crop.x + 2), crop.x + crop.width - w - 2);
   const midY = anchor.y + anchor.height / 2 - h / 2;
-  const candidates: [number, number][] = [
+  const beside: [number, number][] = [
     [anchor.x + anchor.width + 6, midY],
     [anchor.x - 6 - w, midY],
     [anchor.x, anchor.y - h - 4],
     [anchor.x, anchor.y + anchor.height + 4],
   ];
-  const clampX = (x: number) => Math.min(Math.max(x, crop.x + 2), crop.x + crop.width - w - 2);
-  const [x, y] = candidates.find(([cx, cy]) => fitsX(cx) && fitsY(cy))
-    ?? candidates.map(([cx, cy]) => [clampX(cx), cy] as [number, number]).find(([, cy]) => fitsY(cy))
-    ?? [clampX(anchor.x), crop.y + 2];
-  return `<g class="label"><rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${h}" rx="3"/><text x="${n(x + 6)}" y="${n(y + 13)}">${esc(text)}</text></g>`;
+  const candidates = [...beside, ...beside.map(([x, y]) => [clampX(x), y] as [number, number]), [anchor.x + 4, anchor.y + 4] as [number, number]]
+    .map(([x, y]) => ({ x, y, width: w, height: h }));
+  const r = candidates.find((c) => inCrop(c) && !taken.some((t) => overlaps(c, t)))
+    ?? candidates.find(inCrop)
+    ?? { x: clampX(anchor.x), y: crop.y + 2, width: w, height: h };
+  taken.push(r);
+  return `<g class="label"><rect x="${n(r.x)}" y="${n(r.y)}" width="${n(w)}" height="${h}" rx="3"/><text x="${n(r.x + 6)}" y="${n(r.y + 13)}">${esc(text)}</text></g>`;
 }
 
-function shapeSvg(s: Shape, crop: Rect): string {
+function shapeSvg(s: Shape, crop: Rect, taken: Rect[]): string {
   if (s.kind === 'outline') {
     const r = s.rect;
     return `<rect class="${s.role}" x="${n(r.x)}" y="${n(r.y)}" width="${n(r.width)}" height="${n(r.height)}"/>`;
   }
   if (s.kind === 'shade') {
     const r = s.rect;
-    return `<rect class="shade" x="${n(r.x)}" y="${n(r.y)}" width="${n(r.width)}" height="${n(r.height)}"/>${label(s.label, r, crop)}`;
+    return `<rect class="shade" x="${n(r.x)}" y="${n(r.y)}" width="${n(r.width)}" height="${n(r.height)}"/>${label(s.label, r, crop, taken) ?? ''}`;
   }
-  return `<line class="edge" x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}"/>${label(s.label, s.labelNear, crop)}`;
+  return `<line class="edge" x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}"/>${label(s.label, s.labelNear, crop, taken) ?? ''}`;
 }
 
 function viewSvg(v: View, p: Prepared): string {
@@ -74,9 +83,11 @@ function viewSvg(v: View, p: Prepared): string {
   const wire = !p.capture.png || v.belowCapture;
   // Outlines first, measurements (and their labels) on top.
   const shapes = [...v.shapes.filter((s) => s.kind === 'outline'), ...v.shapes.filter((s) => s.kind !== 'outline')];
+  // Labels keep clear of every outlined box and of each other.
+  const taken = v.shapes.flatMap((s) => (s.kind === 'outline' ? [s.rect] : []));
   const svg = `<svg viewBox="${n(crop.x)} ${n(crop.y)} ${n(crop.width)} ${n(crop.height)}" width="${n(crop.width)}" height="${n(crop.height)}"`
     + ` data-page="${n(p.geom.width)} ${n(p.geom.height)}" data-crop="${n(crop.x)} ${n(crop.y)}">`
-    + `<use href="#${wire ? 'wire' : 'shot'}-${p.id}"/>${shapes.map((s) => shapeSvg(s, crop)).join('')}</svg>`;
+    + `<use href="#${wire ? 'wire' : 'shot'}-${p.id}"/>${shapes.map((s) => shapeSvg(s, crop, taken)).join('')}</svg>`;
   const note = !p.capture.png ? '' : v.belowCapture ? ' · below the captured area' : '';
   return `<figure class="view"><button type="button" class="crop" aria-label="Open the full page at ${v.viewport}px">${svg}</button>`
     + `<figcaption>${v.viewport}px${note}</figcaption></figure>`;
