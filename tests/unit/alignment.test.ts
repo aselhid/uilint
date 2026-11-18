@@ -56,3 +56,18 @@ it('reports an offender once per edge', () => {
   const f = alignment.check(snap([a, b, c, d]), opts, 'error');
   expect(f.map((x) => x.boxIds)).toEqual([[c.id]]);
 });
+
+it('accepts an avatar centered on a two-line stack beside it (name over email)', () => {
+  const avatar = box({ x: 0, y: 4, w: 32, h: 32, kind: 'surface' });
+  const name = box({ x: 44, y: 3, w: 120, h: 14, kind: 'text', textAlign: 'left', baseline: 14 });
+  const email = box({ x: 44, y: 23, w: 180, h: 14, kind: 'text', textAlign: 'left', baseline: 34 });
+  expect(alignment.check(snap([avatar, name, email]), opts, 'error')).toEqual([]);
+});
+
+it('still flags an icon 2px off the single label beside it', () => {
+  const icon = box({ x: 0, y: 4, w: 16, h: 16, kind: 'media', tag: 'svg' });
+  const label = box({ x: 24, y: 2, w: 80, h: 16, kind: 'text', textAlign: 'left', baseline: 14 });
+  expect(alignment.check(snap([icon, label]), opts, 'error')).toEqual([
+    expect.objectContaining({ rule: 'alignment', measured: 2 }),
+  ]);
+});

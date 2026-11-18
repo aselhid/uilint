@@ -218,11 +218,12 @@
     if (!key) return { components: [], source: null };
     const components = [];
     let source = null;
+    // The source is the nearest JSX line that created this element, starting with the element itself
+    // (a component fiber's own source is where the component is used, one level too far up).
     for (let f = el[key]; f && components.length < 3; f = f.return) {
+      if (source === null) source = sourceOf(f);
       const name = componentName(f.type);
-      if (!name) continue;
-      if (components.length === 0) source = sourceOf(f);
-      components.push(name);
+      if (name) components.push(name);
     }
     return { components, source };
   };

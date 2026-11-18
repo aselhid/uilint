@@ -125,6 +125,26 @@ it('reads React component names and source from a dev fiber', async () => {
   expect(t.locator.source).toBe('/app/src/StatTile.tsx:12');
 });
 
+it("points at the element's own JSX line, not where its component is used", async () => {
+  // React 18 dev: a host fiber's _debugSource is the line that wrote the element; the component fiber's is its call site.
+  await page.setContent('<p id="x">Revenue</p>');
+  await page.evaluate(() => {
+    const el = document.getElementById('x') as unknown as Record<string, unknown>;
+    el.__reactFiber$abc = {
+      type: 'p',
+      _debugSource: { fileName: 'src/components/StatTile.tsx', lineNumber: 7 },
+      return: {
+        type: { name: 'StatTile' },
+        _debugSource: { fileName: 'src/App.tsx', lineNumber: 20 },
+        return: { type: { name: 'App' }, return: null },
+      },
+    };
+  });
+  const t = (await captureSnapshot(wrap(page), { url: 'http://test/', viewport: 800 }, [])).boxes[0];
+  expect(t.locator.components).toEqual(['StatTile', 'App']);
+  expect(t.locator.source).toBe('src/components/StatTile.tsx:7');
+});
+
 it('reads the React 19 debug stack', async () => {
   await page.setContent('<div id="x">Total</div>');
   await page.evaluate(() => {
