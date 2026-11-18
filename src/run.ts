@@ -1,4 +1,5 @@
-import { isAbsolute, resolve } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { loadConfig } from './config.js';
 import { loadDriver } from './drivers/load.js';
 import { preparePage, stableSnapshot } from './drivers/stabilize.js';
@@ -6,7 +7,9 @@ import { UilintError } from './errors.js';
 import { applyBaseline, loadBaseline, writeBaseline } from './exceptions/baseline.js';
 import { applyIgnores, loadIgnore } from './exceptions/ignore.js';
 import { formatJson, formatText, type UrlReport } from './report/format.js';
+import { renderReport, type Capture } from './report/html.js';
 import { collapseRepeats, mergeViewports, sortViolations } from './report/merge.js';
+import { MAX_SCREENSHOT_HEIGHT } from './report/png.js';
 import { runRules } from './rules/index.js';
 import type { Finding, Snapshot, Violation } from './types.js';
 
@@ -21,6 +24,8 @@ export interface RunOptions {
   json: boolean;
   max: number;
   updateBaseline: boolean;
+  /** Also write a visual HTML report here (relative to cwd). */
+  report?: string;
   cwd: string;
 }
 
@@ -42,7 +47,25 @@ export async function run(opts: RunOptions): Promise<RunResult> {
   }
 }
 
+async function version(): Promise<string> {
+  // src/run.ts and dist/run.js both sit one folder below package.json.
+  const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+  return pkg.version;
+}
+
+async function writeReport(path: string, cwd: string, html: string): Promise<void> {
+  const file = resolve(cwd, path);
+  try {
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, html);
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    throw new UilintError(`could not write report ${path}: ${err.code ?? err.message}`);
+  }
+}
+
 async function runInner(opts: RunOptions): Promise<RunResult> {
+  if (opts.report && opts.updateBaseline) throw new UilintError('--report cannot be combined with --update-baseline');
   const { config } = await loadConfig(opts.config, opts.cwd);
   const usingConfigPages = opts.urls.length === 0;
   const targets = usingConfigPages
@@ -62,6 +85,7 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
 
   const notes: string[] = [];
   const perTarget: { url: string; finalUrl: string; violations: Violation[] }[] = [];
+  const captures: Capture[] = [];
   const driver = await loadDriver({ name, options }, opts.cwd, targets.map((t) => t.url));
   let isolated = false;
   try {
@@ -84,6 +108,10 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
           }
           const snapshot = await stableSnapshot(page, { url: target.url, viewport: width }, config.exclude, config.timeouts.stable);
           finalUrl = snapshot.page.finalUrl;
+          if (opts.report) {
+            const png = page.screenshot ? await page.screenshot({ maxHeight: MAX_SCREENSHOT_HEIGHT }) : null;
+            captures.push({ url: target.url, viewport: width, snapshot, png });
+          }
           runs.push({ snapshot, findings: runRules(snapshot, config) });
         } finally {
           await quietly(() => page.close());
@@ -121,6 +149,11 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
   }
   if (usingConfigPages) {
     for (const e of ignores) if (!used.has(e.line)) notes.push(`ignore entry unused: ${config.ignoreFile}:${e.line}`);
+  }
+
+  if (opts.report) {
+    await writeReport(opts.report, opts.cwd, renderReport({ version: await version(), reports, notes, captures }));
+    notes.push(`report written to ${opts.report}`);
   }
 
   const failed = reports.some((r) => r.violations.some((v) => v.severity === 'error'));

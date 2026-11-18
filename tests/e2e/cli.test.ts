@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,6 +50,52 @@ it('keeps the result when an adapter fails while closing', async () => {
   expect(r.stderr).toBe('');
   expect(r.code).toBe(1);
   expect(r.stdout).toMatch(/left edge 3px off/);
+});
+
+const count = (s: string, needle: string) => s.split(needle).length - 1;
+
+it('writes a report with one card per violation and a screenshot per viewport', async () => {
+  const r = await cli([`${base}/misaligned.html`, '--report', 'out/r.html'], { cwd: tmp });
+  expect(r.stderr).toBe('');
+  expect(r.code).toBe(1);
+  expect(r.stdout).toMatch(/^note  report written to out\/r\.html$/m);
+  const html = await readFile(join(tmp, 'out/r.html'), 'utf8');
+  expect(count(html, '<section class="finding')).toBe(1);
+  expect(count(html, 'data:image/png;base64,')).toBe(3);
+  expect(html).toContain('left edge 3px off from 2 stacked items');
+});
+
+it('leaves stdout as it was without --report', async () => {
+  const plain = await cli([`${base}/misaligned.html`, '--viewport', '375'], { cwd: tmp });
+  const withReport = await cli([`${base}/misaligned.html`, '--viewport', '375', '--report', 'same.html'], { cwd: tmp });
+  expect(plain.stdout).not.toMatch(/report written/);
+  expect(withReport.stdout.replace(/\n\nnote {2}report written to same\.html/, '')).toBe(plain.stdout);
+});
+
+it('puts every finding in the report even past --max', async () => {
+  const r = await cli([`${base}/hscroll.html`, '--viewport', '375', '--max', '1', '--report', 'max.html'], { cwd: tmp });
+  expect(r.stdout).toMatch(/1 more not shown/);
+  expect(count(await readFile(join(tmp, 'max.html'), 'utf8'), '<section class="finding')).toBe(2);
+});
+
+it('draws the sideways-scroll strip', async () => {
+  await cli([`${base}/hscroll.html`, '--viewport', '375', '--report', 'h.html'], { cwd: tmp });
+  const html = await readFile(join(tmp, 'h.html'), 'utf8');
+  expect(html).toMatch(/<rect class="shade" x="375" y="[\d.]+" width="58"/);
+  expect(html).toContain('+58px');
+});
+
+it('exits 2 when the report cannot be written', async () => {
+  await writeFile(join(tmp, 'blocker'), 'x');
+  const r = await cli([`${base}/misaligned.html`, '--viewport', '375', '--report', 'blocker/r.html'], { cwd: tmp });
+  expect(r.code).toBe(2);
+  expect(r.stderr).toMatch(/^uilint: could not write report blocker\/r\.html/);
+});
+
+it('rejects --report with --update-baseline', async () => {
+  const r = await cli([`${base}/misaligned.html`, '--update-baseline', '--report', 'r.html'], { cwd: tmp });
+  expect(r.code).toBe(2);
+  expect(r.stderr).toMatch(/--report cannot be combined with --update-baseline/);
 });
 
 it('exits 2 on HTTP 404', async () => {

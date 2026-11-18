@@ -28,6 +28,7 @@ const program = new Command()
   .option('--json', 'machine-readable output')
   .option('--max <n>', 'cap the number of reported violations', positiveInt, 50)
   .option('--update-baseline', 'write current violations to the baseline file and exit 0')
+  .option('--report <file>', 'also write a visual HTML report to <file>')
   .exitOverride()
   .action(async (urls: string[], o) => {
     const result = await run({
@@ -41,6 +42,7 @@ const program = new Command()
       json: !!o.json,
       max: o.max,
       updateBaseline: !!o.updateBaseline,
+      report: o.report,
       cwd: process.cwd(),
     });
     process.stdout.write(result.stdout);
