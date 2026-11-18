@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { composite, contrastRatio, isLarge, toHex, type Layer, type RGBA } from '../contrast/color.js';
+import { UilintError } from '../errors.js';
 import type { ContrastInfo, ContrastSample, DriverPage, Snapshot, Unverified } from '../types.js';
 
 /** One colour painted below the text, or a gradient given by its stops. */
@@ -16,6 +17,8 @@ export interface RawSample {
 }
 
 interface RawResult {
+  /** The measure pass left nothing to work on (not run with keep, or run in another JS world). */
+  missing?: boolean;
   boxes: { id: number; samples: RawSample[]; unverified: Unverified | null }[];
   /** Opacity of each group id used in the layers. */
   opacity: Record<number, number>;
@@ -56,6 +59,7 @@ export function measureSample(s: RawSample, opacity: Record<number, number>): Co
  */
 export async function captureContrast(page: DriverPage, snapshot: Snapshot): Promise<void> {
   const raw = await page.evaluate<RawResult>(`(${await contrastSource()})()`);
+  if (raw.missing) throw new UilintError('the measure pass left no boxes to check (it must run with keep in the same JS world)');
   const byId = new Map(snapshot.boxes.map((b) => [b.id, b]));
   for (const r of raw.boxes) {
     const box = byId.get(r.id);

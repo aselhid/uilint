@@ -22,7 +22,7 @@ export const UNVERIFIED_LABEL: Record<Unverified, string> = {
   'backdrop-filter': 'backdrop-filter',
   'blend mode': 'blend mode',
   filter: 'filter',
-  hidden: 'covered',
+  hidden: 'not hit-testable',
 };
 
 const UNVERIFIED_MESSAGE: Record<Unverified, string> = {
@@ -35,7 +35,7 @@ const UNVERIFIED_MESSAGE: Record<Unverified, string> = {
   'backdrop-filter': 'text over a backdrop-filter',
   'blend mode': 'text with a blend mode',
   filter: 'text under a CSS filter',
-  hidden: 'text covered by another element',
+  hidden: "text uilint couldn't hit-test",
 };
 
 const SUBJECT: Record<ContrastSample['what'], string> = { text: 'text', value: 'input text', placeholder: 'placeholder' };

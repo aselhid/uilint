@@ -60,8 +60,10 @@ it('samples each differently coloured run of text', async () => {
   expect(fgs).toContain('#aaaaaa');
 });
 
-it('leaves boxes alone when the measure pass kept nothing', async () => {
-  const s = await measure('<p style="color:#999">No stash</p>', false);
+it('fails loudly when the measure pass kept nothing', async () => {
+  await page.setContent('<p style="color:#999">No stash</p>');
+  const s = await captureSnapshot(wrap(page), { url: 'http://test/', viewport: 800 }, [], false);
+  await expect(captureContrast(wrap(page), s)).rejects.toThrow(/measure pass/);
   expect(textBox(s, 'No stash').contrast).toBeUndefined();
 });
 
@@ -259,4 +261,12 @@ it('skips controls that show no text', async () => {
 it('uses the control\'s own background behind its placeholder', async () => {
   const s = await measure('<style>input::placeholder{color:#888}</style><input placeholder="Dark" style="background:#222;border:0">');
   expect(control(s, 'input').contrast!.samples[0]).toMatchObject({ what: 'placeholder', bg: '#222222' });
+});
+
+it('checks only the part of the text that can be scrolled into view', async () => {
+  const s = await measure(`<style>html{overflow-x:clip}</style><div style="position:relative;height:40px">
+    <p style="position:absolute;left:760px;top:0;margin:0;white-space:nowrap;color:#999">Peeking off the edge of the page</p></div>`);
+  const c = textBox(s, 'Peeking').contrast!;
+  expect(c.unverified).toBeNull();
+  expect(c.samples[0].ratio).toBeCloseTo(2.85, 2);
 });

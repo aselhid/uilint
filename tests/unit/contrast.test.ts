@@ -70,3 +70,7 @@ it('lets each check be switched off', () => {
 
 it('caps severity at the rule severity', () =>
   expect(contrast.check(snap([text({ samples: [sample()], unverified: null })]), o, 'warn')[0].severity).toBe('warn'));
+
+it('says plainly when the text could not be hit-tested', () =>
+  expect(contrast.check(snap([text({ samples: [], unverified: 'hidden' })]), o, 'error')[0].message)
+    .toBe("text uilint couldn't hit-test, contrast not checked"));

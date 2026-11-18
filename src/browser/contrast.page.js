@@ -4,7 +4,7 @@
 () => {
   const stash = window.__uilintBoxes;
   delete window.__uilintBoxes;
-  if (!Array.isArray(stash)) return { boxes: [], opacity: {} };
+  if (!Array.isArray(stash)) return { missing: true, boxes: [], opacity: {} };
 
   const MAX_SAMPLES = 32;
   const sx = window.scrollX, sy = window.scrollY;
