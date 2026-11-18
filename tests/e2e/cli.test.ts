@@ -92,6 +92,18 @@ it('exits 2 when the report cannot be written', async () => {
   expect(r.stderr).toMatch(/^uilint: could not write report blocker\/r\.html/);
 });
 
+it('keeps the lint result when a screenshot fails, and draws boxes instead', async () => {
+  const r = await cli([`${base}/misaligned.html`, '--viewport', '375', '--report', 'fail.html',
+    '--driver', join(repo, 'tests/drivers/fixtures/screenshot-throws.ts')], { cwd: tmp });
+  expect(r.stderr).toBe('');
+  expect(r.code).toBe(1);
+  expect(r.stdout).toMatch(/left edge 3px off/);
+  expect(r.stdout).toMatch(/^note {2}screenshot failed at 375px for .*misaligned\.html: page\.screenshot: Timeout 30000ms exceeded\.$/m);
+  const html = await readFile(join(tmp, 'fail.html'), 'utf8');
+  expect(html).not.toContain('data:image/png');
+  expect(html).toContain('class="wire');
+});
+
 it('rejects --report with --update-baseline', async () => {
   const r = await cli([`${base}/misaligned.html`, '--update-baseline', '--report', 'r.html'], { cwd: tmp });
   expect(r.code).toBe(2);

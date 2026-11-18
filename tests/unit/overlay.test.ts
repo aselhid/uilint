@@ -66,6 +66,19 @@ it('shades the strip beyond the viewport for sideways scroll, and keeps it in th
   expect(v.crop.x + v.crop.width).toBe(433);
 });
 
+it('shows the sideways-scroll strip when no element is to blame', () => {
+  const [v] = buildViews([hit({ rule: 'overflow', check: 'hscroll', measured: 58 }, [])], page({ width: 433 }));
+  expect(Object.values(v.crop).every(Number.isFinite)).toBe(true);
+  expect(v.crop.x + v.crop.width).toBe(433);
+  expect(measure(v.shapes)[0]).toMatchObject({ kind: 'shade', label: '+58px', rect: { x: 375, width: 58 } });
+});
+
+it('starts the sideways-scroll strip at the page client width, not the viewport', () => {
+  const culprit = box({ x: 0, y: 300, w: 418, h: 20 });
+  const [v] = buildViews([hit({ rule: 'overflow', check: 'hscroll', measured: 58 }, [culprit])], page({ width: 418, clientWidth: 360 }));
+  expect(measure(v.shapes)[0]).toMatchObject({ rect: { x: 360, width: 58 } });
+});
+
 it('shades the intersection of overlapping boxes', () => {
   const a = box({ x: 0, y: 0, w: 50, h: 50 }), b = box({ x: 40, y: 30, w: 50, h: 50 });
   const [v] = buildViews([hit({ rule: 'overflow', check: 'overlap', measured: 200 }, [a, b])], page());

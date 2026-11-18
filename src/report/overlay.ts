@@ -3,7 +3,7 @@ import type { Box, Rect } from '../types.js';
 import type { Hit } from './merge.js';
 
 /** A page as drawn in the report, in CSS px. captured: how much of its height the screenshot covers (0 without one). */
-export interface PageGeom { width: number; height: number; captured: number }
+export interface PageGeom { width: number; height: number; captured: number; clientWidth?: number }
 
 export type Shape =
   | { kind: 'outline'; role: 'offender' | 'peer'; rect: Rect }
@@ -44,13 +44,17 @@ function intersection(a: Rect, b: Rect): Rect {
   return { x, y, width: Math.max(0, Math.min(a.x + a.width, b.x + b.width) - x), height: Math.max(0, Math.min(a.y + a.height, b.y + b.height) - y) };
 }
 
-/** The strip a page scrolls sideways into, as a rect spanning rows y..y+height. */
-const hscrollStrip = (viewport: number, page: PageGeom, y: number, height: number): Rect =>
-  ({ x: viewport, y, width: Math.max(0, page.width - viewport), height });
+/** The strip a page scrolls sideways into (past its client width, which excludes a classic scrollbar), spanning rows y..y+height. */
+function hscrollStrip(viewport: number, page: PageGeom, y: number, height: number): Rect {
+  const from = page.clientWidth ?? viewport;
+  return { x: from, y, width: Math.max(0, page.width - from), height };
+}
 
 function cropFor(hit: Hit, page: PageGeom): Rect {
   const rects = [...hit.offenders, ...hit.peers].map((b) => b.rect);
-  if (hit.finding.check === 'hscroll') rects.push(hscrollStrip(hit.viewport, page, union(rects).y, 1));
+  // A sideways scroll can have no element to blame; show the top of the strip then.
+  if (hit.finding.check === 'hscroll') rects.push(hscrollStrip(hit.viewport, page, rects.length ? union(rects).y : 0, rects.length ? 1 : Math.min(400, page.height || 400)));
+  if (!rects.length) rects.push({ x: 0, y: 0, width: Math.min(page.width, MIN_W), height: MIN_H });
   const u = union(rects);
   let x = u.x - PAD, y = u.y - PAD, w = u.width + 2 * PAD, h = u.height + 2 * PAD;
   if (w < MIN_W) { x -= (MIN_W - w) / 2; w = MIN_W; }
@@ -61,6 +65,7 @@ function cropFor(hit: Hit, page: PageGeom): Rect {
 
 function measurement(hit: Hit, page: PageGeom, crop: Rect): Shape | null {
   const { finding: f, offenders: [a, b], peers } = hit;
+  if (f.check === 'hscroll') return { kind: 'shade', rect: hscrollStrip(hit.viewport, page, crop.y, crop.height), label: `+${px(f.measured)}` };
   if (!a) return null;
   switch (f.check) {
     case 'gap':
@@ -72,8 +77,6 @@ function measurement(hit: Hit, page: PageGeom, crop: Rect): Shape | null {
     case 'height':
     case 'width':
       return { kind: 'shade', rect: a.rect, label: `${px(f.measured)} · others ${px(f.expected ?? 0)}` };
-    case 'hscroll':
-      return { kind: 'shade', rect: hscrollStrip(hit.viewport, page, crop.y, crop.height), label: `+${px(f.measured)}` };
     case 'overlap':
       return b ? { kind: 'shade', rect: intersection(a.rect, b.rect), label: 'overlap' } : null;
     case 'clipped':

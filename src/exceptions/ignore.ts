@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { RULE_NAMES } from '../config.js';
 import { UilintError } from '../errors.js';
+import { withViewports } from '../report/merge.js';
 import type { Locator, RuleName, Violation } from '../types.js';
 
 export interface IgnoreEntry {
@@ -74,7 +75,7 @@ export function applyIgnores(vs: Violation[], entries: IgnoreEntry[]): { kept: V
       viewports = e.viewport === '*' ? [] : viewports.filter((w) => w !== e.viewport);
       if (viewports.length < before) used.add(e.line);
     }
-    if (viewports.length) kept.push(viewports.length === v.viewports.length ? v : { ...v, viewports });
+    if (viewports.length) kept.push(viewports.length === v.viewports.length ? v : withViewports(v, viewports));
   }
   return { kept, used };
 }

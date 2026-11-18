@@ -21,10 +21,11 @@ interface Prepared { id: number; capture: Capture; geom: PageGeom }
 function prepare(c: Capture, id: number): Prepared {
   const width = Math.max(c.snapshot.page.scrollWidth, c.snapshot.page.clientWidth);
   const boxBottom = Math.max(0, ...c.snapshot.boxes.map((b) => b.rect.y + b.rect.height)) + 16;
-  if (!c.png) return { id, capture: c, geom: { width, height: boxBottom, captured: 0 } };
+  const clientWidth = c.snapshot.page.clientWidth;
+  if (!c.png) return { id, capture: c, geom: { width, height: boxBottom, captured: 0, clientWidth } };
   const size = pngSize(c.png);
   const captured = size.height * (width / size.width);
-  return { id, capture: c, geom: { width, height: Math.max(captured, boxBottom), captured } };
+  return { id, capture: c, geom: { width, height: Math.max(captured, boxBottom), captured, clientWidth } };
 }
 
 function defsFor(p: Prepared): string {

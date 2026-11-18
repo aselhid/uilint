@@ -109,7 +109,13 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
           const snapshot = await stableSnapshot(page, { url: target.url, viewport: width }, config.exclude, config.timeouts.stable);
           finalUrl = snapshot.page.finalUrl;
           if (opts.report) {
-            const png = page.screenshot ? await page.screenshot({ maxHeight: MAX_SCREENSHOT_HEIGHT }) : null;
+            let png: Buffer | null = null;
+            try {
+              if (page.screenshot) png = await page.screenshot({ maxHeight: MAX_SCREENSHOT_HEIGHT });
+            } catch (e) {
+              // The lint result stands; the report draws the measured boxes for this capture instead.
+              notes.push(`screenshot failed at ${width}px for ${target.url}: ${(e as Error).message.split('\n')[0]}`);
+            }
             captures.push({ url: target.url, viewport: width, snapshot, png });
           }
           runs.push({ snapshot, findings: runRules(snapshot, config) });

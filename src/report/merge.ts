@@ -13,6 +13,13 @@ export function hitsOf(v: Violation): Hit[] {
   return HITS.get(v) ?? [];
 }
 
+/** A copy of v limited to some of its viewports, keeping the report geometry of those viewports. */
+export function withViewports(v: Violation, viewports: number[]): Violation {
+  const copy = { ...v, viewports };
+  HITS.set(copy, hitsOf(v).filter((h) => viewports.includes(h.viewport)));
+  return copy;
+}
+
 const RULE_ORDER = new Map(RULES.map((r, i) => [r.name, i]));
 
 const locKey = (l: Locator) => `${l.selector}::${l.text ?? ''}`;

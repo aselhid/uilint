@@ -3,6 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { applyIgnores, loadIgnore, parseIgnore } from '../../src/exceptions/ignore.js';
+import { hitsOf, mergeViewports } from '../../src/report/merge.js';
+import type { Finding } from '../../src/types.js';
+import { box, snap } from '../helpers/boxes.js';
+
+it('keeps the report geometry of the viewports an ignore entry leaves', () => {
+  const b = [box({ x: 0, y: 0, w: 10, h: 10, id: 0 }), box({ x: 3, y: 20, w: 10, h: 10, id: 1, locator: { selector: 'p', text: 'Revenue', components: [], source: null } })];
+  const f: Finding = { rule: 'alignment', check: 'left', severity: 'error', message: 'm', measured: 3, expected: 0, boxIds: [1], peerIds: [0] };
+  const vs = mergeViewports('http://x/', [{ snapshot: snap(b, { viewport: 375 }), findings: [f] }, { snapshot: snap(b, { viewport: 1280 }), findings: [f] }]);
+  const { kept } = applyIgnores(vs, parseIgnore('alignment | text:Revenue | 375 | phone layout\n', 'uilint.ignore'));
+  expect(kept[0].viewports).toEqual([1280]);
+  expect(hitsOf(kept[0]).map((h) => h.viewport)).toEqual([1280]);
+});
 import { loc, violation } from '../helpers/violations.js';
 
 describe('parseIgnore', () => {
