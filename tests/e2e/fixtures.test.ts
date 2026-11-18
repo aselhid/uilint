@@ -1,4 +1,4 @@
-import { mkdtemp, readdir } from 'node:fs/promises';
+import { mkdtemp, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +34,8 @@ const BAD: [file: string, rule: string, checks: string[], targets: string[], vie
   ['overflow-hscroll.html', 'overflow', ['hscroll'], ['div.banner'], [375]],
   ['overflow-overlap.html', 'overflow', ['overlap'], ['Pending review', 'Approved']],
   ['overflow-spill.html', 'overflow', ['spill'], ['button.cta']],
+  ['contrast-low.html', 'contrast', ['ratio'], ['Updated 3 days ago']],
+  ['contrast-placeholder.html', 'contrast', ['placeholder'], ['input.search']],
 ];
 
 describe(`defect fixtures (${driver})`, () => {
@@ -57,6 +59,23 @@ describe(`clean fixtures (${driver})`, async () => {
       expect(violations.filter((v) => v.severity === 'error'), stdout).toEqual([]);
     });
   }
+});
+
+describe(`contrast (${driver})`, () => {
+  it('warns once, for the heading over an image, on the clean contrast page', async () => {
+    const { violations, stdout } = await lint('clean/clean-contrast.html', [1280]);
+    expect(violations.filter((v) => v.rule === 'contrast'), stdout).toEqual([
+      expect.objectContaining({ check: 'unverified', severity: 'warn', message: 'text over an image, contrast not checked' }),
+    ]);
+  });
+
+  it('runs no contrast pass when the rule is off', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'uilint-fx-off-'));
+    await writeFile(join(dir, 'uilint.config.json'), JSON.stringify({ rules: { contrast: 'off' } }));
+    const r = await run({ urls: [`${server.url}/bad/contrast-low.html`], driver, json: true, max: 50, updateBaseline: false, cwd: dir });
+    expect(r.exitCode, r.stdout + r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout).reports[0].violations).toEqual([]);
+  });
 });
 
 describe('determinism', () => {

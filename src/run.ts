@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import { loadConfig } from './config.js';
+import { captureContrast } from './browser/contrast.js';
+import { loadConfig, ruleSetting } from './config.js';
 import { loadDriver } from './drivers/load.js';
 import { preparePage, stableSnapshot } from './drivers/stabilize.js';
 import { UilintError } from './errors.js';
@@ -10,7 +11,8 @@ import { formatJson, formatText, type UrlReport } from './report/format.js';
 import { renderReport, type Capture } from './report/html.js';
 import { collapseRepeats, mergeViewports, sortViolations } from './report/merge.js';
 import { MAX_SCREENSHOT_HEIGHT } from './report/png.js';
-import { runRules } from './rules/index.js';
+import { contrast } from './rules/contrast.js';
+import { DEFAULT_SEVERITY, runRules } from './rules/index.js';
 import type { Finding, Snapshot, Violation } from './types.js';
 
 export interface RunOptions {
@@ -73,6 +75,8 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
     : opts.urls.map((url) => ({ url, setup: opts.setup ? resolve(opts.cwd, opts.setup) : undefined }));
   if (targets.length === 0) throw new UilintError('no URL given and no pages in config');
   const viewports = opts.viewports ?? config.viewports;
+  // The contrast pass scrolls the page and hit-tests text; with the rule off, the page is measured exactly as before.
+  const contrastOn = ruleSetting(config, contrast, DEFAULT_SEVERITY.contrast).severity !== 'off';
 
   const name = opts.driver ? (isPath(opts.driver) ? resolve(opts.cwd, opts.driver) : opts.driver) : config.driver.name;
   const options = { ...config.driver.options };
@@ -106,7 +110,7 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
             }
             await page.waitForNetworkIdle(2000);
           }
-          const snapshot = await stableSnapshot(page, { url: target.url, viewport: width }, config.exclude, config.timeouts.stable);
+          const snapshot = await stableSnapshot(page, { url: target.url, viewport: width }, config.exclude, config.timeouts.stable, contrastOn);
           finalUrl = snapshot.page.finalUrl;
           if (opts.report) {
             let png: Buffer | null = null;
@@ -117,6 +121,14 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
               notes.push(`screenshot failed at ${width}px for ${target.url}: ${(e as Error).message.split('\n')[0]}`);
             }
             captures.push({ url: target.url, viewport: width, snapshot, png });
+          }
+          // After the screenshot: the pass scrolls, and anything that reacts to scrolling must not reach the picture.
+          if (contrastOn) {
+            try {
+              await captureContrast(page, snapshot);
+            } catch (e) {
+              notes.push(`contrast not measured at ${width}px for ${target.url}: ${(e as Error).message.split('\n')[0]}`);
+            }
           }
           runs.push({ snapshot, findings: runRules(snapshot, config) });
         } finally {
