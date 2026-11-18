@@ -20,7 +20,7 @@ function locatorLine(l: Locator): string {
   return parts.join('  ');
 }
 
-function violationBlock(v: Violation): string {
+export function violationBlock(v: Violation): string {
   const head = [v.severity.padEnd(5), v.rule, v.message, `@${v.viewports.join(',')}`];
   if (v.count > 1) head.push(`(×${v.count})`);
   const lines = [head.join('  ')];
