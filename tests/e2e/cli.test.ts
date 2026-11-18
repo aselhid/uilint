@@ -170,14 +170,20 @@ it('works from the compiled build', async () => {
   // Inside the repo so the compiled CLI resolves node_modules the normal way.
   const out = await mkdtemp(join(repo, '.tmp-dist-'));
   execFileSync(process.execPath, [join(repo, 'scripts/build.mjs'), '--outDir', out], { cwd: repo });
-  const r = await new Promise<{ code: number | null; stdout: string }>((resolve) => {
-    const child = spawn(process.execPath, [join(out, 'cli.js'), `${base}/misaligned.html`, '--viewport', '800'], { cwd: tmp });
+  const built = (page: string) => new Promise<{ code: number | null; stdout: string }>((resolve) => {
+    const child = spawn(process.execPath, [join(out, 'cli.js'), `${base}/${page}`, '--viewport', '800'], { cwd: tmp });
     let stdout = '';
     child.stdout.on('data', (d) => (stdout += d));
     child.stderr.on('data', (d) => (stdout += d));
     child.on('close', (code) => resolve({ code, stdout }));
   });
+  const layout = await built('misaligned.html');
+  const contrast = await built('low-contrast.html');
   await rm(out, { recursive: true, force: true });
-  expect(r.stdout).toMatch(/^error  alignment  left edge 3px off/m);
-  expect(r.code).toBe(1);
+  expect(layout.stdout).toMatch(/^error  alignment  left edge 3px off/m);
+  expect(layout.code).toBe(1);
+  // The contrast pass loads its in-page script from dist/browser; the build must ship it.
+  expect(contrast.stdout).not.toMatch(/contrast not measured/);
+  expect(contrast.stdout).toMatch(/^error  contrast  text contrast 2\.32:1, needs 4\.5:1/m);
+  expect(contrast.code).toBe(1);
 }, 120_000);
