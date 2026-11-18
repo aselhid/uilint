@@ -12,9 +12,9 @@ export interface AlignmentOptions {
   minRowPeers: number;
 }
 
-type Edge = 'left' | 'right' | 'center-x' | 'top' | 'bottom' | 'center-y' | 'baseline';
+export type Edge = 'left' | 'right' | 'center-x' | 'top' | 'bottom' | 'center-y' | 'baseline';
 
-const EDGE_VALUE: Record<Edge, (b: Box) => number> = {
+export const EDGE_VALUE: Record<Edge, (b: Box) => number> = {
   left: (b) => b.rect.x,
   right: (b) => b.rect.x + b.rect.width,
   'center-x': (b) => b.rect.x + b.rect.width / 2,

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { collapseRepeats, fingerprint, mergeViewports, sortViolations } from '../../src/report/merge.js';
+import { collapseRepeats, fingerprint, hitsOf, mergeViewports, sortViolations } from '../../src/report/merge.js';
 import type { Finding, Snapshot } from '../../src/types.js';
 import { box, resetBoxIds, snap } from '../helpers/boxes.js';
 import { loc, violation } from '../helpers/violations.js';
@@ -65,6 +65,39 @@ describe('collapseRepeats', () => {
   });
   it('does not collapse different measurements', () =>
     expect(collapseRepeats([violation(), violation({ measured: 2 })])).toHaveLength(2));
+});
+
+describe('hitsOf', () => {
+  it('records a hit per viewport', () => {
+    const [v] = mergeViewports(url, [run(375, [finding]), run(1280, [finding])]);
+    expect(hitsOf(v).map((h) => h.viewport)).toEqual([375, 1280]);
+    expect(hitsOf(v)[0].offenders.map((b) => b.id)).toEqual([1]);
+    expect(hitsOf(v)[0].peers.map((b) => b.id)).toEqual([0]);
+    expect(hitsOf(v)[1].finding).toBe(finding);
+  });
+
+  it('keeps every peer, not just the three named', () => {
+    const boxes = Array.from({ length: 6 }, (_, i) => box({ x: 0, y: i * 30, w: 10, h: 10 }));
+    const [v] = mergeViewports(url, [{ snapshot: snap(boxes), findings: [{ ...finding, boxIds: [5], peerIds: [0, 1, 2, 3, 4] }] }]);
+    expect(v.peers).toHaveLength(3);
+    expect(hitsOf(v)[0].peers).toHaveLength(5);
+  });
+
+  it('gives a collapsed group the hits of all its instances, first instance first', () => {
+    const rows = Array.from({ length: 3 }, (_, i) =>
+      box({ x: 0, y: i * 40, w: 100, h: 20, locator: { selector: `li.row:nth-of-type(${i + 1})`, text: 'Order', components: ['OrderRow'], source: null } }));
+    const findings: Finding[] = [2, 1, 0].map((i) => ({ ...finding, rule: 'spacing', check: 'gap', boxIds: [i], peerIds: [] }));
+    const [c] = collapseRepeats(mergeViewports(url, [{ snapshot: snap(rows), findings }]));
+    expect(c.count).toBe(3);
+    expect(hitsOf(c).map((h) => h.offenders[0].id)).toEqual([0, 2, 1]);
+  });
+
+  it('adds nothing to the JSON shape', () => {
+    const [v] = mergeViewports(url, [run(375, [finding])]);
+    expect(Object.keys(JSON.parse(JSON.stringify(v)))).not.toContain('hits');
+  });
+
+  it('is empty for a violation it did not make', () => expect(hitsOf(violation())).toEqual([]));
 });
 
 describe('sortViolations', () => {

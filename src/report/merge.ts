@@ -1,6 +1,17 @@
 import { createHash } from 'node:crypto';
 import { RULES } from '../rules/index.js';
-import type { Finding, Locator, Snapshot, Violation } from '../types.js';
+import type { Box, Finding, Locator, Snapshot, Violation } from '../types.js';
+
+/** One per-viewport finding behind a violation, with the boxes it named. */
+export interface Hit { viewport: number; finding: Finding; offenders: Box[]; peers: Box[] }
+
+// Kept beside the violations so the Violation shape (text, JSON, baseline) stays as it is.
+const HITS = new WeakMap<Violation, Hit[]>();
+
+/** The per-viewport findings that produced v; [] for a violation built elsewhere. */
+export function hitsOf(v: Violation): Hit[] {
+  return HITS.get(v) ?? [];
+}
 
 const RULE_ORDER = new Map(RULES.map((r, i) => [r.name, i]));
 
@@ -22,9 +33,12 @@ export function mergeViewports(url: string, runs: { snapshot: Snapshot; findings
     for (const f of findings) {
       const elements = f.boxIds.map((id) => byId.get(id)?.locator).filter((l): l is Locator => !!l);
       const key = [f.rule, f.check, f.severity, f.measured, f.expected, elements.map(locKey).join('|')].join('#');
+      const boxes = (ids: number[]) => ids.map((id) => byId.get(id)).filter((b): b is Box => !!b);
+      const hit: Hit = { viewport: snapshot.page.viewport, finding: f, offenders: boxes(f.boxIds), peers: boxes(f.peerIds) };
       const existing = byKey.get(key);
       if (existing) {
         if (!existing.viewports.includes(snapshot.page.viewport)) existing.viewports.push(snapshot.page.viewport);
+        HITS.get(existing)!.push(hit);
         continue;
       }
       const offender = byId.get(f.boxIds[0]);
@@ -45,6 +59,7 @@ export function mergeViewports(url: string, runs: { snapshot: Snapshot; findings
         anchor: offender ? { y: offender.rect.y, x: offender.rect.x } : { y: 0, x: 0 },
       };
       v.fingerprint = fingerprint(url, v);
+      HITS.set(v, [hit]);
       byKey.set(key, v);
     }
   }
@@ -67,7 +82,9 @@ export function collapseRepeats(vs: Violation[]): Violation[] {
   }
   return [...groups.values()].map((g) => {
     const first = [...g].sort((a, b) => a.anchor.y - b.anchor.y || a.anchor.x - b.anchor.x)[0];
-    return { ...first, count: g.reduce((n, v) => n + v.count, 0) };
+    const merged = { ...first, count: g.reduce((n, v) => n + v.count, 0) };
+    HITS.set(merged, [first, ...g.filter((v) => v !== first)].flatMap(hitsOf));
+    return merged;
   });
 }
 
