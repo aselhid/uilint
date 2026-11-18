@@ -1,5 +1,15 @@
 # uilint
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node ≥ 20](https://img.shields.io/badge/node-%E2%89%A520-339933.svg)](package.json)
+[![Playwright](https://img.shields.io/badge/browser-Playwright%20%2F%20Chromium-2EAD33.svg)](https://playwright.dev)
+
+A layout linter for coding agents. It measures the rendered page and reports near-miss spacing, alignment, size and overflow problems as plain text, with an exit code the agent can act on.
+
+[![uilint demo: an agent runs uilint on a React dashboard, gets 4 errors, fixes them, and reruns to a clean exit 0](docs/media/uilint-demo.gif)](docs/media/uilint-demo.mp4)
+
+In the demo above (56s, [full-quality mp4](docs/media/uilint-demo.mp4)), an agent runs uilint on a React dashboard it built. uilint reports a label 3px out of line with the numbers under it, a 20px gap among 16px gaps on a phone, a button 1px taller than its neighbors, and a page that scrolls 58px sideways at 375px. The agent fixes each one at the JSX line uilint named, reruns, and gets exit code 0. Everything in the video is real uilint output; [`demo/`](demo/) regenerates it.
+
 uilint loads a web page in a real browser, measures where every visible element landed, and reports small layout mistakes as text: spacing that is slightly off, edges a few pixels out of line, near-identical elements with slightly different sizes, and clipped or overflowing content. It is meant to be run by a coding agent after it changes UI, so the agent gets a deterministic list of problems to fix instead of guessing from screenshots.
 
 uilint only flags near misses. Two edges 3px apart are almost certainly a mistake, while two edges 40px apart are almost certainly intended, so uilint reports the first and ignores the second. The same goes for a 14px gap among 16px gaps (reported) and a 64px gap above a hero (ignored). This keeps false alarms low without anyone annotating the page.

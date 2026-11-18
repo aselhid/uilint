@@ -14,6 +14,15 @@ node record.mjs                   # full video, about 5 minutes
 node record.mjs --stills 12,30    # single frames, for checking the layout
 ```
 
+To refresh the copies the main README shows, put the new video in `docs/media/` and rebuild the GIF preview (two passes keep ffmpeg's memory use low):
+
+```sh
+cp out/uilint-demo.mp4 ../docs/media/
+FF=node_modules/ffmpeg-static/ffmpeg
+$FF -y -i out/uilint-demo.mp4 -vf "fps=8,scale=960:-1:flags=lanczos,palettegen=max_colors=128:stats_mode=diff" out/palette.png
+$FF -y -i out/uilint-demo.mp4 -i out/palette.png -lavfi "fps=8,scale=960:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" -gifflags +transdiff ../docs/media/uilint-demo.gif
+```
+
 Run `npm run build` in the parent folder first: the demo uses this repo's `dist/` through `npx uilint`.
 
 ## Licenses
