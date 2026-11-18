@@ -1,0 +1,119 @@
+import { rowPairs, stackedPairs, type Pair } from '../geometry/relations.js';
+import { fmtPx, isNearMiss, round2 } from '../near-miss.js';
+import type { Box, Finding, Rule } from '../types.js';
+
+export interface AlignmentOptions { min: number; max: number; maxGap: number }
+
+type Edge = 'left' | 'right' | 'center-x' | 'top' | 'bottom' | 'center-y' | 'baseline';
+
+const EDGE_VALUE: Record<Edge, (b: Box) => number> = {
+  left: (b) => b.rect.x,
+  right: (b) => b.rect.x + b.rect.width,
+  'center-x': (b) => b.rect.x + b.rect.width / 2,
+  top: (b) => b.rect.y,
+  bottom: (b) => b.rect.y + b.rect.height,
+  'center-y': (b) => b.rect.y + b.rect.height / 2,
+  baseline: (b) => b.baseline ?? b.rect.y + b.rect.height,
+};
+
+const EDGE_LABEL: Record<Edge, string> = {
+  left: 'left edge',
+  right: 'right edge',
+  'center-x': 'horizontal center',
+  top: 'top edge',
+  bottom: 'bottom edge',
+  'center-y': 'vertical center',
+  baseline: 'baseline',
+};
+
+const ALIGN_EDGE = { left: 'left', center: 'center-x', right: 'right' } as const;
+
+function stackedEdges(a: Box, b: Box): Edge[] {
+  if (a.kind === 'text' && b.kind === 'text') {
+    if (!a.textAlign || a.textAlign !== b.textAlign) return [];
+    return [ALIGN_EDGE[a.textAlign]];
+  }
+  return ['left', 'right', 'center-x'];
+}
+
+function rowEdges(a: Box, b: Box): Edge[] {
+  const edges: Edge[] = ['top', 'bottom', 'center-y'];
+  if (a.kind === 'text' && b.kind === 'text') edges.push('baseline');
+  return edges;
+}
+
+/** Connected components over all pairs: boxes that sit in one column (or one row). */
+function components(pairs: Pair[]): Map<number, Box[]> {
+  const parent = new Map<number, number>();
+  const find = (x: number): number => {
+    let r = x;
+    while (parent.get(r) !== r) r = parent.get(r)!;
+    parent.set(x, r);
+    return r;
+  };
+  const boxes = new Map<number, Box>();
+  for (const { a, b } of pairs) {
+    for (const x of [a, b]) if (!parent.has(x.id)) { parent.set(x.id, x.id); boxes.set(x.id, x); }
+    const ra = find(a.id), rb = find(b.id);
+    if (ra !== rb) parent.set(rb, ra);
+  }
+  const byRoot = new Map<number, Box[]>();
+  for (const [id, b] of boxes) {
+    const r = find(id);
+    const list = byRoot.get(r);
+    if (list) list.push(b);
+    else byRoot.set(r, [b]);
+  }
+  const byBox = new Map<number, Box[]>();
+  for (const list of byRoot.values()) {
+    list.sort((p, q) => p.id - q.id);
+    for (const b of list) byBox.set(b.id, list);
+  }
+  return byBox;
+}
+
+function check(pairs: Pair[], edgesFor: (a: Box, b: Box) => Edge[], o: AlignmentOptions, where: (n: number) => string,
+  severity: Finding['severity']): Finding[] {
+  const comp = components(pairs);
+  const group = (x: Box, e: Edge) =>
+    (comp.get(x.id) ?? [x]).filter((m) => Math.abs(EDGE_VALUE[e](m) - EDGE_VALUE[e](x)) <= o.min);
+  const findings: Finding[] = [];
+  const reported = new Set<string>();
+  for (const { a, b } of pairs) {
+    const edges = edgesFor(a, b);
+    if (edges.length === 0) continue;
+    const diffs = edges.map((e) => ({ e, d: round2(Math.abs(EDGE_VALUE[e](a) - EDGE_VALUE[e](b))) }));
+    if (diffs.some(({ d }) => d <= o.min)) continue;
+    const best = diffs.reduce((p, q) => (q.d < p.d ? q : p));
+    if (!isNearMiss(best.d, 0, { min: o.min, max: o.max })) continue;
+    const ga = group(a, best.e), gb = group(b, best.e);
+    const [offender, peers] = ga.length < gb.length ? [a, gb] : [b, ga];
+    const key = `${offender.id}:${best.e}`;
+    if (reported.has(key)) continue;
+    reported.add(key);
+    findings.push({
+      rule: 'alignment',
+      check: best.e,
+      severity,
+      message: `${EDGE_LABEL[best.e]} ${fmtPx(best.d)} off from ${where(peers.length)}`,
+      measured: best.d,
+      expected: 0,
+      boxIds: [offender.id],
+      peerIds: peers.map((p) => p.id),
+    });
+  }
+  return findings;
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+export const alignment: Rule<AlignmentOptions> = {
+  name: 'alignment',
+  defaults: { min: 0.5, max: 4, maxGap: 48 },
+  check(snapshot, o, severity) {
+    const stacked = check(stackedPairs(snapshot.boxes, o), stackedEdges, o, (n) => `${plural(n, 'stacked item')}`, severity);
+    const row = check(rowPairs(snapshot.boxes, o), rowEdges, o, (n) => `${plural(n, 'item')} in the row`, severity);
+    return [...stacked, ...row];
+  },
+};
+
