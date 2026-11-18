@@ -1,0 +1,16 @@
+{
+  "name": "uilint-demo",
+  "private": true,
+  "type": "module",
+  "description": "Builds the uilint demo video from real uilint runs.",
+  "license": "MIT",
+  "scripts": {
+    "record": "node record.mjs"
+  },
+  "dependencies": {
+    "ffmpeg-static": "5.2.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "uilint": "file:.."
+  }
+}

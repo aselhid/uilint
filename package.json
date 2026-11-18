@@ -1,0 +1,57 @@
+{
+  "name": "uilint",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic linter for rendered web UI: near-miss spacing, alignment, size and overflow.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "uilint": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "commander": "^15.1.0",
+    "playwright": "^1.65.1",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "betterwright": "2.9.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./conformance": {
+      "types": "./dist/conformance.d.ts",
+      "default": "./dist/conformance.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "vitest": ">=3",
+    "betterwright": ">=2.9.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    },
+    "betterwright": {
+      "optional": true
+    }
+  }
+}

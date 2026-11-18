@@ -1,0 +1,1 @@
+{ "pages": [{ "url": "http://localhost:3000/", "setup": "./s.ts" }], "driver": { "name": "./my-driver.ts", "options": { "profile": "./profile" } } }
