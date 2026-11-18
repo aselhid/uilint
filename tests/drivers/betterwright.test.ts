@@ -20,6 +20,13 @@ const fake = (options: Record<string, unknown> = {}) => createBetterWrightDriver
 runDriverConformance('betterwright (stand-in)', () => fake(), { setupFile });
 
 describe('betterwright adapter', () => {
+  it('offers screenshots', async () => {
+    const d = await fake();
+    const p = await d.open(`${server.url}/still.html`, { width: 375, height: 900 }, 30000);
+    expect(typeof p.screenshot).toBe('function');
+    await d.close();
+  });
+
   it('returns results larger than BetterWright will hand back in one call', async () => {
     const d = await fake();
     const p = await d.open(`${server.url}/still.html`, { width: 375, height: 900 }, 30000);

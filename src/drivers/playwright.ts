@@ -2,11 +2,12 @@ import { pathToFileURL } from 'node:url';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { tsImport } from 'tsx/esm/api';
 import { UilintError } from '../errors.js';
+import { SCROLL_SIZE } from '../report/png.js';
 import type { CreateDriver, Driver, DriverPage } from '../types.js';
 
 export interface PlaywrightOptions { profile?: string; cdp?: string; channel?: string; headless?: boolean }
 
-const CONTEXT_DEFAULTS = { deviceScaleFactor: 1, reducedMotion: 'reduce' as const };
+const CONTEXT_DEFAULTS ={ deviceScaleFactor: 1, reducedMotion: 'reduce' as const };
 
 function wrapPage(page: Page, status: number | null, onClose: () => Promise<void>): DriverPage {
   let closed = false;
@@ -22,6 +23,10 @@ function wrapPage(page: Page, status: number | null, onClose: () => Promise<void
       const fn = mod.default?.default ?? mod.default;
       if (typeof fn !== 'function') throw new UilintError(`setup ${file} must export a default function (page) => Promise<void>`);
       await fn(page);
+    },
+    screenshot: async ({ maxHeight }) => {
+      const [width, height] = await page.evaluate(SCROLL_SIZE) as [number, number];
+      return page.screenshot({ fullPage: true, scale: 'css', clip: { x: 0, y: 0, width, height: Math.min(height, maxHeight) } });
     },
     close: async () => {
       if (closed) return;

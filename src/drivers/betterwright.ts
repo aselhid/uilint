@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { UilintError } from '../errors.js';
+import { SCROLL_SIZE } from '../report/png.js';
 import type { CreateDriver, Driver, DriverPage } from '../types.js';
 
 /*
@@ -65,6 +66,18 @@ export async function createBetterWrightDriverFrom(
     return env.result;
   };
 
+  /** BetterWright caps what one call returns, so a large result is parked in state.uilintOut and read in chunks. */
+  const readOut = async (session: string, length: number): Promise<string> => {
+    let out = '';
+    for (let i = 0; i < length; i += CHUNK) {
+      const part = await exec(session, `return state.uilintOut.slice(${i}, ${i + CHUNK});`, 'reading a result');
+      if (typeof part !== 'string') throw new UilintError('betterwright returned a truncated result');
+      out += part;
+    }
+    await exec(session, 'delete state.uilintOut; return true;', 'clearing a result');
+    return out;
+  };
+
   return {
     name: 'betterwright',
     async open(url, viewport, timeoutMs) {
@@ -88,14 +101,7 @@ export async function createBetterWrightDriverFrom(
           const length = (await exec(session,
             `state.uilintOut = JSON.stringify((await page.evaluate(${JSON.stringify(expression)})) ?? null); return state.uilintOut.length;`,
             'evaluating a script')) as number;
-          let json = '';
-          for (let i = 0; i < length; i += CHUNK) {
-            const part = await exec(session, `return state.uilintOut.slice(${i}, ${i + CHUNK});`, 'reading a result');
-            if (typeof part !== 'string') throw new UilintError('betterwright returned a truncated result');
-            json += part;
-          }
-          await exec(session, 'delete state.uilintOut; return true;', 'clearing a result');
-          return JSON.parse(json) as T;
+          return JSON.parse(await readOut(session, length)) as T;
         },
         async addStyle(css) {
           await exec(session, `await page.addStyleTag({ content: ${JSON.stringify(css)} }); return true;`, 'adding a style');
@@ -105,6 +111,13 @@ export async function createBetterWrightDriverFrom(
         },
         async runSetup(file) {
           await exec(session, await readFile(file, 'utf8'), `setup ${file}`);
+        },
+        async screenshot({ maxHeight }) {
+          const length = (await exec(session, `
+            const [width, height] = await page.evaluate(${JSON.stringify(SCROLL_SIZE)});
+            const png = await page.screenshot({ fullPage: true, scale: 'css', clip: { x: 0, y: 0, width, height: Math.min(height, ${maxHeight}) } });
+            state.uilintOut = png.toString('base64'); return state.uilintOut.length;`, 'taking a screenshot')) as number;
+          return Buffer.from(await readOut(session, length), 'base64');
         },
         async close() {
           if (pageClosed) return;

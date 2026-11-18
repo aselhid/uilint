@@ -16,6 +16,13 @@ afterAll(async () => { await server.close(); });
 runDriverConformance('playwright', () => createPlaywrightDriver({}), { setupFile: join(here, 'fixtures/setup-title.ts') });
 
 describe('playwright driver', () => {
+  it('offers screenshots', async () => {
+    const d = await createPlaywrightDriver({});
+    const p = await d.open(`${server.url}/still.html`, { width: 375, height: 900 }, 30000);
+    expect(typeof p.screenshot).toBe('function');
+    await d.close();
+  });
+
   it('opens pages with scale factor 1', async () => {
     const d = await createPlaywrightDriver({});
     const p = await d.open(`${server.url}/still.html`, { width: 375, height: 900 }, 30000);

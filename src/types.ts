@@ -104,6 +104,11 @@ export interface DriverPage {
   waitForNetworkIdle(timeoutMs: number): Promise<void>;
   /** The adapter's own setup format. */
   runSetup(file: string): Promise<void>;
+  /**
+   * Optional, used by --report: a PNG of the whole document from (0,0) at CSS scale,
+   * as wide as the document and at most maxHeight CSS px tall.
+   */
+  screenshot?(opts: { maxHeight: number }): Promise<Buffer>;
   /** Idempotent. */
   close(): Promise<void>;
 }
