@@ -63,7 +63,7 @@ With no URLs, uilint lints the `pages` listed in the config. `--setup` applies t
 
 ## What it checks
 
-Rules compare only boxes you can see: text, images and icons, form controls, and elements with a background, border, outline or shadow. A plain wrapper `<div>` is invisible, so it is skipped, which is why alignment works across different parts of the HTML tree. Boxes are compared with others in the same visible container and the same layer, so a modal is never compared with the page behind it.
+Rules compare only boxes you can see: text, images and icons, form controls, and elements with a background, border, outline or shadow. A plain wrapper `<div>` is invisible, so it is skipped, which is why alignment works across different parts of the HTML tree. Boxes are compared with others in the same visible container and the same layer, so a modal is never compared with the page behind it. uilint treats an element as its own layer when it is `position: fixed`, an open `<dialog>`, an open popover, `aria-modal="true"`, or has role `dialog`, `alertdialog`, `menu`, `listbox` or `tooltip`. A dropdown that is only `position: absolute` with none of these shares the page's layer; give it the right role, which screen readers need anyway.
 
 | rule | check | what it reports |
 |---|---|---|

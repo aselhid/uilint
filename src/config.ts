@@ -110,7 +110,8 @@ export async function loadConfig(path: string | undefined, cwd: string): Promise
   config.baselineFile = resolve(dir, config.baselineFile);
   config.pages = config.pages.map((p) => (p.setup ? { ...p, setup: resolve(dir, p.setup) } : { ...p }));
   if (isPathLike(config.driver.name)) config.driver.name = resolve(dir, config.driver.name);
-  if (typeof config.driver.options.profile === 'string') {
+  // A betterwright profile is an identity name, not a folder.
+  if (typeof config.driver.options.profile === 'string' && config.driver.name !== 'betterwright') {
     config.driver.options.profile = resolve(dir, config.driver.options.profile);
   }
   return { config, dir };

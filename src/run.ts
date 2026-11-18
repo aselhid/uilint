@@ -28,6 +28,11 @@ export interface RunResult { exitCode: 0 | 1 | 2; stdout: string; stderr: string
 
 const isPath = (s: string) => s.startsWith('.') || isAbsolute(s);
 
+/** Closing is cleanup: a failure there must not replace the lint result or the error that ended the run. */
+async function quietly(close: () => Promise<void>): Promise<void> {
+  try { await close(); } catch { /* the browser is gone either way */ }
+}
+
 export async function run(opts: RunOptions): Promise<RunResult> {
   try {
     return await runInner(opts);
@@ -81,13 +86,13 @@ async function runInner(opts: RunOptions): Promise<RunResult> {
           finalUrl = snapshot.page.finalUrl;
           runs.push({ snapshot, findings: runRules(snapshot, config) });
         } finally {
-          await page.close();
+          await quietly(() => page.close());
         }
       }
       perTarget.push({ url: target.url, finalUrl, violations: mergeViewports(target.url, runs) });
     }
   } finally {
-    await driver.close();
+    await quietly(() => driver.close());
   }
 
   const ignores = await loadIgnore(config.ignoreFile);

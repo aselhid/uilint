@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +35,13 @@ describe('loadConfig', () => {
     expect(config.driver.name).toBe(fx('my-driver.ts'));
     expect(config.driver.options.profile).toBe(fx('profile'));
     expect(config.ignoreFile).toBe(fx('uilint.ignore'));
+  });
+
+  it('keeps a betterwright profile as an identity name instead of resolving it as a path', async () => {
+    const d = await mkdtemp(join(tmpdir(), 'uilint-cfg-bw-'));
+    await writeFile(join(d, 'uilint.config.json'), JSON.stringify({ driver: { name: 'betterwright', options: { profile: 'work' } } }));
+    const { config } = await loadConfig(undefined, d);
+    expect(config.driver.options.profile).toBe('work');
   });
 
   it('rejects unknown rules with a UilintError naming the rule', async () => {

@@ -45,6 +45,13 @@ it('exits 1 with an alignment error on a misaligned page', async () => {
   expect(r.stdout).toMatch(/^  p\.stat-label "Revenue"$/m);
 });
 
+it('keeps the result when an adapter fails while closing', async () => {
+  const r = await cli([`${base}/misaligned.html`, '--viewport', '800', '--driver', join(repo, 'tests/drivers/fixtures/close-throws.ts')], { cwd: tmp });
+  expect(r.stderr).toBe('');
+  expect(r.code).toBe(1);
+  expect(r.stdout).toMatch(/left edge 3px off/);
+});
+
 it('exits 2 on HTTP 404', async () => {
   const r = await cli([`${base}/nope.html`], { cwd: tmp });
   expect(r.code).toBe(2);
