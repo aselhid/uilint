@@ -133,3 +133,21 @@ it('makes one view per viewport, ascending, outlining every repeated instance', 
   expect(views.map((v) => v.viewport)).toEqual([375, 1280]);
   expect(views[0].shapes.filter((s) => s.kind === 'shade')).toHaveLength(2);
 });
+
+it('tags a contrast failure with its ratio and minimum, without shading the text', () => {
+  const t = box({ x: 10, y: 10, w: 120, h: 16, kind: 'text' });
+  const [v] = buildViews([hit({ rule: 'contrast', check: 'ratio', measured: 2.85, expected: 4.5 }, [t])], page());
+  expect(measure(v.shapes)).toEqual([{ kind: 'tag', label: '2.85:1 · min 4.5:1', near: t.rect }]);
+});
+
+it('tags a placeholder the same way', () => {
+  const t = box({ x: 10, y: 10, w: 240, h: 36, kind: 'control' });
+  const [v] = buildViews([hit({ rule: 'contrast', check: 'placeholder', measured: 1.9, expected: 4.5 }, [t])], page());
+  expect(measure(v.shapes)).toEqual([{ kind: 'tag', label: '1.9:1 · min 4.5:1', near: t.rect }]);
+});
+
+it('tags unverified contrast with the reason', () => {
+  const t = box({ x: 10, y: 10, w: 120, h: 16, kind: 'text', contrast: { samples: [], unverified: 'backdrop-filter' } });
+  const [v] = buildViews([hit({ rule: 'contrast', check: 'unverified', measured: 0, expected: null }, [t])], page());
+  expect(measure(v.shapes)).toEqual([{ kind: 'tag', label: 'not checked: backdrop-filter', near: t.rect }]);
+});

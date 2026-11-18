@@ -1,4 +1,5 @@
 import { EDGE_VALUE, type Edge } from '../rules/alignment.js';
+import { UNVERIFIED_LABEL } from '../rules/contrast.js';
 import type { Box, Rect } from '../types.js';
 import type { Hit } from './merge.js';
 
@@ -9,7 +10,9 @@ export type Shape =
   | { kind: 'outline'; role: 'offender' | 'peer'; rect: Rect }
   | { kind: 'shade'; rect: Rect; label: string }
   /** labelNear: the box the label goes beside (the offender), so it never sits on the peers. */
-  | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; label: string; labelNear: Rect };
+  | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; label: string; labelNear: Rect }
+  /** A label beside a box, with nothing drawn over the box (contrast: shading would change the colours shown). */
+  | { kind: 'tag'; label: string; near: Rect };
 
 /** One finding at one viewport: the part of the page to show and what to draw on it. */
 export interface View { viewport: number; crop: Rect; shapes: Shape[]; belowCapture: boolean }
@@ -67,6 +70,10 @@ function measurement(hit: Hit, page: PageGeom, crop: Rect): Shape | null {
   const { finding: f, offenders: [a, b], peers } = hit;
   if (f.check === 'hscroll') return { kind: 'shade', rect: hscrollStrip(hit.viewport, page, crop.y, crop.height), label: `+${px(f.measured)}` };
   if (!a) return null;
+  if (f.rule === 'contrast') {
+    if (f.check === 'unverified') return a.contrast?.unverified ? { kind: 'tag', label: `not checked: ${UNVERIFIED_LABEL[a.contrast.unverified]}`, near: a.rect } : null;
+    return { kind: 'tag', label: `${f.measured}:1 · min ${f.expected ?? 0}:1`, near: a.rect };
+  }
   switch (f.check) {
     case 'gap':
       return b ? { kind: 'shade', rect: gapRect(a, b), label: `${px(f.measured)} · siblings ${px(f.expected ?? 0)}` } : null;

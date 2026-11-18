@@ -134,3 +134,11 @@ it('says no problems found for a clean page', () => {
   expect(html).toContain('no problems found');
   expect(html).toContain('uilint 9.9.9');
 });
+
+it('draws a contrast tag as a label with no shading', () => {
+  const html = setup({ findings: () => [
+    { rule: 'contrast', check: 'ratio', severity: 'error', message: 'text contrast 2.85:1, needs 4.5:1 (#999999 on #ffffff)', measured: 2.85, expected: 4.5, boxIds: [1], peerIds: [] },
+  ] });
+  expect(html).toContain('2.85:1 · min 4.5:1');
+  expect(count(html, 'class="shade"')).toBe(0);
+});

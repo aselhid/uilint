@@ -76,6 +76,7 @@ function shapeSvg(s: Shape, crop: Rect, taken: Rect[]): string {
     const r = s.rect;
     return `<rect class="shade" x="${n(r.x)}" y="${n(r.y)}" width="${n(r.width)}" height="${n(r.height)}"/>${label(s.label, r, crop, taken) ?? ''}`;
   }
+  if (s.kind === 'tag') return label(s.label, s.near, crop, taken) ?? '';
   return `<line class="edge" x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}"/>${label(s.label, s.labelNear, crop, taken) ?? ''}`;
 }
 
