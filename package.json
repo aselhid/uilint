@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "Deterministic linter for rendered web UI: near-miss spacing, alignment, size and overflow.",
-  "type": "module",
   "license": "MIT",
+  "type": "module",
   "engines": {
     "node": ">=20"
   },

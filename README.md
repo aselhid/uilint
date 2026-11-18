@@ -34,7 +34,7 @@ warn   overflow  text truncated with ellipsis  @375
   span.email "jane.long-name@example.com"  <CustomerRow>  src/customers/CustomerRow.tsx:21
 ```
 
-Each block is one problem. The first line gives the severity, the rule, what was measured against what was expected, and the viewport widths where it happens. `(×3)` means the same problem repeats on 3 similar elements, such as list rows. The indented lines point at the elements to fix: a CSS selector, a snippet of visible text, the nearest React component and its source file. A spacing problem names the two boxes on either side of the gap. `aligned with:` or `compared with:` names the elements that set the expected value. Component names and source files need a React development build; without one, a line shows only the selector and text.
+Each block is one problem. The first line gives the severity, the rule, what was measured against what was expected, and the viewport widths where it happens. `(×3)` means the same problem repeats on 3 similar elements, such as list rows. The indented lines point at the elements to fix: a CSS selector, a snippet of visible text, the nearest React component, and the JSX line that created the element (the line to edit). A spacing problem names the two boxes on either side of the gap. `aligned with:` or `compared with:` names the elements that set the expected value. Component names and source files need a React development build; without one, a line shows only the selector and text.
 
 Exit codes:
 
@@ -288,3 +288,7 @@ To run the suites through the BetterWright adapter against the real BetterWright
 ```sh
 UILINT_TEST_BETTERWRIGHT=1 npx vitest run tests/drivers/betterwright.test.ts
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE). uilint's runtime dependencies (Playwright, commander, tsx) are under Apache-2.0 and MIT.
