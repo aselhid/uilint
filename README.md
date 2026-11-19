@@ -16,15 +16,21 @@ uilint only flags near misses. Two edges 3px apart are almost certainly a mistak
 
 ## Install and run
 
-uilint needs Node 20 or newer.
+uilint needs Node 20 or newer. To try it once against a page that's running locally:
 
 ```sh
-npm i -D uilint
 npx playwright install chromium
+npx @aselhid/uilint http://localhost:3000/dashboard
+```
+
+To keep it in a project:
+
+```sh
+npm i -D @aselhid/uilint
 npx uilint http://localhost:3000/dashboard
 ```
 
-The package is not published yet (the npm name `uilint` belongs to another project). Until it is, build from this repo with `npm install && npm run build` and run `node dist/cli.js`.
+The package is published as `@aselhid/uilint` because the npm name `uilint` belongs to an unrelated project. The command it installs is still `uilint`. Don't run a bare `npx uilint` in a project that doesn't have it installed, because npx would fetch that other package.
 
 ## Reading the output
 
@@ -133,7 +139,7 @@ Every rule runs at each viewport width (375, 768 and 1280 by default). Before me
 uilint reads `uilint.config.ts`, or `uilint.config.json`, from the folder you run it in; `--config` points it elsewhere. Every key is optional. In the example, `pages`, `rules`, `exclude` and the driver's `profile` are illustrations (the first three default to empty, which means every rule at `error` with default options); every other value shown is the default.
 
 ```ts
-import { defineConfig } from 'uilint';
+import { defineConfig } from '@aselhid/uilint';
 
 export default defineConfig({
   viewports: [375, 768, 1280],      // widths to lint at
@@ -316,7 +322,7 @@ To check an adapter, run uilint's conformance tests against it with vitest. The 
 
 ```ts
 // puppeteer-driver.test.ts
-import { runDriverConformance } from 'uilint/conformance';
+import { runDriverConformance } from '@aselhid/uilint/conformance';
 import { createDriver } from './puppeteer-driver.mjs';
 
 runDriverConformance('puppeteer', () => createDriver({}), { setupFile: '/abs/path/to/setup-title.mjs' });

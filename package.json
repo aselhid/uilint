@@ -1,9 +1,27 @@
 {
-  "name": "uilint",
+  "name": "@aselhid/uilint",
   "version": "0.1.0",
-  "private": true,
-  "description": "Deterministic linter for rendered web UI: near-miss spacing, alignment, size and overflow.",
+  "description": "Layout linter for coding agents: measures the rendered page and reports near-miss spacing, alignment, size and overflow problems, and text too low in contrast.",
+  "keywords": [
+    "lint",
+    "layout",
+    "ui",
+    "css",
+    "playwright",
+    "ai-agents",
+    "react",
+    "accessibility"
+  ],
   "license": "MIT",
+  "author": "asel hidayat sjamhars",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aselhid/uilint.git"
+  },
+  "homepage": "https://github.com/aselhid/uilint#readme",
+  "bugs": {
+    "url": "https://github.com/aselhid/uilint/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -14,7 +32,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "vitest run",
-    "dev": "tsx src/cli.ts"
+    "dev": "tsx src/cli.ts",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "commander": "^15.1.0",
@@ -53,5 +72,8 @@
     "betterwright": {
       "optional": true
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

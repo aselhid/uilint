@@ -8,7 +8,7 @@ description: Use after changing UI in a React web app (components, styles, layou
 After you change UI, run uilint on every page you touched, with the dev server running:
 
 ```sh
-npx uilint http://localhost:3000/<page> [more urls...] --report uilint-report.html
+npx @aselhid/uilint http://localhost:3000/<page> [more urls...] --report uilint-report.html
 ```
 
 Rules:
