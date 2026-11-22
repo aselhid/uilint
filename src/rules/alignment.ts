@@ -36,12 +36,15 @@ const EDGE_LABEL: Record<Edge, string> = {
 
 const ALIGN_EDGE = { left: 'left', center: 'center-x', right: 'right' } as const;
 
+/**
+ * Text has one real edge, the one it is aligned to; the others are wherever its longest line happens to end.
+ * A left-aligned paragraph's right edge is never a guide line, for other text or for the image below it.
+ */
 function stackedEdges(a: Box, b: Box): Edge[] {
-  if (a.kind === 'text' && b.kind === 'text') {
-    if (!a.textAlign || a.textAlign !== b.textAlign) return [];
-    return [ALIGN_EDGE[a.textAlign]];
-  }
-  return ['left', 'right', 'center-x'];
+  const aligns = [a, b].filter((x) => x.kind === 'text').map((x) => x.textAlign);
+  if (aligns.length === 0) return ['left', 'right', 'center-x'];
+  if (aligns.some((t) => !t) || aligns.some((t) => t !== aligns[0])) return [];
+  return [ALIGN_EDGE[aligns[0]!]];
 }
 
 function rowEdges(a: Box, b: Box): Edge[] {

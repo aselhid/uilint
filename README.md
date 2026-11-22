@@ -106,7 +106,7 @@ Inline boxes in running text, such as inline `<code>` or a highlighted link insi
 
 | rule | check | what it reports |
 |---|---|---|
-| `alignment` | `left`, `right`, `center-x` | a box nearly in line with a column that at least two other boxes share exactly |
+| `alignment` | `left`, `right`, `center-x` | a box nearly in line with a column that at least two other boxes share exactly (text counts only by the edge it is aligned to: a left-aligned paragraph's ragged right edge is not a column) |
 | `alignment` | `top`, `bottom`, `center-y`, `baseline` | an item nearly in line with its neighbor in a row |
 | `spacing` | `gap` | one gap that nearly matches the gaps around it in a stack or row; gaps above and below headings are compared only with other heading gaps |
 | `spacing` | `inset-x`, `inset-y` | a container whose padding nearly matches on opposite sides |

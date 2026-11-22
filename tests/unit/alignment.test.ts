@@ -76,3 +76,17 @@ it('ignores inline code that wrapped to the start of a line', () => {
   const code = box({ x: 19.2, y: 60, w: 80, h: 18, inText: true });
   expect(alignment.check(snap([text(16, 0), text(16, 30), code]), opts, 'error')).toEqual([]);
 });
+
+it("ignores a left-aligned paragraph's ragged right edge and center next to an image", () => {
+  // A centred image (23..352) in a 16..359 column, among paragraphs whose longest lines happen to end near 350.4.
+  const p = (y: number, w: number) => box({ x: 16, y, w, h: 56, kind: 'text', textAlign: 'left' });
+  const img = box({ x: 23, y: 80, w: 329, h: 300, kind: 'media', tag: 'img' });
+  expect(alignment.check(snap([p(0, 334.4), img, p(400, 334.6), p(480, 334.2)]), opts, 'error')).toEqual([]);
+});
+
+it('still compares the edge text is aligned to with the boxes around it', () => {
+  const card = (y: number) => box({ x: 16, y, w: 300, h: 40, kind: 'surface' });
+  const t = box({ x: 19, y: 100, w: 120, h: 16, kind: 'text', textAlign: 'left' });
+  const f = alignment.check(snap([card(0), card(50), t]), opts, 'error');
+  expect(f).toEqual([expect.objectContaining({ check: 'left', measured: 3, boxIds: [t.id] })]);
+});
