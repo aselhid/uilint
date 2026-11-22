@@ -137,6 +137,15 @@ it('measures text below the fold and restores the scroll position', async () => 
   expect(await page.evaluate('window.scrollY')).toBe(0);
 });
 
+it('scrolls to text whose middle sits on the bottom edge of the viewport', async () => {
+  // The sample point lands a fraction of a pixel above y = 600; hit-testing rounds it onto the edge and finds nothing.
+  const s = await measure('<div style="height:588.2px"></div><p style="margin:0;color:#999">On the edge</p>');
+  const line = textBox(s, 'On the edge').rect;
+  expect(line.y + line.height / 2).toBeGreaterThan(599.5);
+  expect(line.y + line.height / 2).toBeLessThan(600);
+  expect(textBox(s, 'On the edge').contrast).toMatchObject({ unverified: null });
+});
+
 it('flags large text', async () => {
   const s = await measure('<p style="font:700 19px Arial">Bold big</p><p style="font:19px Arial">Plain big</p>');
   expect(first(s, 'Bold big').large).toBe(true);
