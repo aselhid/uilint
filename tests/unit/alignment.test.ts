@@ -71,3 +71,8 @@ it('still flags an icon 2px off the single label beside it', () => {
     expect.objectContaining({ rule: 'alignment', measured: 2 }),
   ]);
 });
+
+it('ignores inline code that wrapped to the start of a line', () => {
+  const code = box({ x: 19.2, y: 60, w: 80, h: 18, inText: true });
+  expect(alignment.check(snap([text(16, 0), text(16, 30), code]), opts, 'error')).toEqual([]);
+});

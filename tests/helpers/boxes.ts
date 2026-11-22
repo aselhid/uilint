@@ -24,6 +24,8 @@ export function box(o: { x: number; y: number; w: number; h: number } & Partial<
     role: null,
     clipped: null,
     ellipsis: false,
+    clipRect: null,
+    inText: false,
     locator: { selector: `#b${id}`, text: null, components: [], source: null },
     ...rest,
     rect,

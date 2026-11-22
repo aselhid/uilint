@@ -204,3 +204,51 @@ it('counts only half of a collapsed table border inside the cell', async () => {
   const td = s.boxes.find((b) => b.kind === 'surface')!;
   expect(td.rect.y + td.rect.height - (td.innerRect.y + td.innerRect.height)).toBeCloseTo(0.5, 1);
 });
+
+it('splits a line into runs where inline content the text does not own interrupts it', async () => {
+  const s = await snap(`<p style="width:600px;margin:0;font:16px/24px Arial">before <code style="background:#eee;padding:0 4px">code</code> after</p>`);
+  const text = s.boxes.find((b) => b.kind === 'text' && b.tag === 'p')!;
+  const code = s.boxes.find((b) => b.tag === 'code' && b.kind === 'surface')!;
+  expect(text.lines).toHaveLength(2);
+  for (const run of text.lines) expect(run.x + run.width <= code.rect.x || run.x >= code.rect.x + code.rect.width).toBe(true);
+});
+
+it('marks inline boxes in running text, but not inline boxes on their own', async () => {
+  const s = await snap(`<p>Run <code style="background:#eee">npm test</code> first.</p>
+    <nav><a href="#" style="background:#eee">Home</a> <a href="#" style="background:#eee">About</a></nav>`);
+  expect(s.boxes.filter((b) => b.inText).map((b) => [b.kind, b.tag])).toEqual([['surface', 'code'], ['text', 'code']]);
+});
+
+it('does not count what a scroll container cuts off on its scrolling axis as clipped', async () => {
+  const long = 'x'.repeat(80);
+  const s = await snap(`<pre style="width:100px;overflow-x:auto;margin:0">${long}</pre>
+    <div style="width:100px;overflow:hidden;white-space:nowrap">${long}</div>
+    <div style="width:100px;height:20px;overflow-x:auto;overflow-y:hidden;font:16px/20px Arial">${'y '.repeat(60)}</div>`);
+  expect(s.boxes.map((b) => b.clipped === null ? null : b.clipped.x > 0 ? 'x' : 'y')).toEqual([null, 'x', 'y']);
+  expect(s.boxes[0].rect.width).toBeLessThanOrEqual(100);
+});
+
+it('records the clipping ancestor of a box', async () => {
+  const s = await snap(`<div style="width:200px;height:100px;overflow:hidden"><img style="display:block;width:400px;height:200px"></div>`);
+  expect(s.boxes[0].clipRect).toEqual({ x: 0, y: 0, width: 200, height: 100 });
+});
+
+it('measures only an open modal dialog, and skips inert content', async () => {
+  await page.setContent(`<p>behind the modal</p><div inert><p>inert</p></div>
+    <dialog id="d"><p>in the modal</p></dialog><script>document.getElementById('d').showModal()</script>`);
+  const s = await captureSnapshot(wrap(page), { url: 'http://test/', viewport: 800 }, []);
+  expect(s.boxes.filter((b) => b.kind === 'text').map((b) => b.locator.text)).toEqual(['in the modal']);
+  expect(s.boxes.every((b) => b.layer === 1)).toBe(true);
+});
+
+it('skips inert content without a modal', async () => {
+  const s = await snap(`<div inert><p>inert</p></div><p>live</p>`);
+  expect(s.boxes.map((b) => b.locator.text)).toEqual(['live']);
+});
+
+it('measures the topmost of two open modals', async () => {
+  await page.setContent(`<dialog id="a"><p>first</p></dialog><dialog id="b"><p>second</p></dialog>
+    <script>document.getElementById('b').showModal(); document.getElementById('a').showModal()</script>`);
+  const s = await captureSnapshot(wrap(page), { url: 'http://test/', viewport: 800 }, []);
+  expect(s.boxes.filter((b) => b.kind === 'text').map((b) => b.locator.text)).toEqual(['first']);
+});

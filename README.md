@@ -100,19 +100,21 @@ With no URLs, uilint lints the `pages` listed in the config. `--setup` applies t
 
 ## What it checks
 
-Rules compare only boxes you can see: text, images and icons, form controls, and elements with a background, border, outline or shadow. A plain wrapper `<div>` is invisible, so it is skipped, which is why alignment works across different parts of the HTML tree. Boxes are compared with others in the same visible container and the same layer, so a modal is never compared with the page behind it. uilint treats an element as its own layer when it is `position: fixed`, an open `<dialog>`, an open popover, `aria-modal="true"`, or has role `dialog`, `alertdialog`, `menu`, `listbox` or `tooltip`. A dropdown that is only `position: absolute` with none of these shares the page's layer; give it the right role, which screen readers need anyway.
+Rules compare only boxes you can see: text, images and icons, form controls, and elements with a background, border, outline or shadow. A plain wrapper `<div>` is invisible, so it is skipped, which is why alignment works across different parts of the HTML tree. Boxes are compared with others in the same visible container and the same layer, so a modal is never compared with the page behind it. uilint treats an element as its own layer when it is `position: fixed`, an open `<dialog>`, an open popover, `aria-modal="true"`, or has role `dialog`, `alertdialog`, `menu`, `listbox` or `tooltip`. A dropdown that is only `position: absolute` with none of these shares the page's layer; give it the right role, which screen readers need anyway. While a modal `<dialog>` is open (`showModal()`), the page behind it is inert, so uilint measures only the modal; lint the page in a state without the modal. Content under an `inert` attribute is skipped too.
+
+Inline boxes in running text, such as inline `<code>` or a highlighted link inside a paragraph, are not lined up, spaced or sized against other boxes: where they land depends on where the line wraps. They are still checked for contrast and overlap. Text is compared for overlap run by run, so a paragraph never overlaps the inline code inside it.
 
 | rule | check | what it reports |
 |---|---|---|
 | `alignment` | `left`, `right`, `center-x` | a box nearly in line with a column that at least two other boxes share exactly |
 | `alignment` | `top`, `bottom`, `center-y`, `baseline` | an item nearly in line with its neighbor in a row |
-| `spacing` | `gap` | one gap that nearly matches the gaps around it in a stack or row |
+| `spacing` | `gap` | one gap that nearly matches the gaps around it in a stack or row; gaps above and below headings are compared only with other heading gaps |
 | `spacing` | `inset-x`, `inset-y` | a container whose padding nearly matches on opposite sides |
 | `spacing` | `min-gap`, `scale` | optional limits, off by default |
 | `size-consistency` | `height`, `width` | a button, card or input nearly the same size as its siblings |
-| `overflow` | `clipped` | text cut off by an `overflow: hidden` ancestor |
+| `overflow` | `clipped` | text cut off by an `overflow: hidden` ancestor (a scroll container, such as a code block with `overflow-x: auto`, doesn't count on the axis it scrolls) |
 | `overflow` | `ellipsis` | text truncated with an ellipsis (a warning by default) |
-| `overflow` | `spill` | a box sticking out of its container (text and controls are errors, decoration such as a badge dot is a warning) |
+| `overflow` | `spill` | a box sticking out of its container (text and controls are errors, decoration such as a badge dot is a warning; an image cropped by an `overflow: hidden` ancestor counts only as far as it shows) |
 | `overflow` | `hscroll` | the page scrolls sideways |
 | `overflow` | `overlap` | text or controls overlapping each other |
 | `contrast` | `ratio` | text, or the value typed in a form field, below the WCAG 2.x contrast minimum: 4.5:1, or 3:1 for large text (24px, or 18.66px bold) |

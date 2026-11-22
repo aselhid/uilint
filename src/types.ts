@@ -44,7 +44,10 @@ export interface Box {
   layoutRect: Rect;
   /** Inside the borders (padding box); text: same as rect. */
   innerRect: Rect;
-  /** text only, one per line; [] otherwise. */
+  /**
+   * text only: one rect per run of glyphs, a line split wherever something the box doesn't own (inline code, an icon)
+   * interrupts it; [] otherwise.
+   */
   lines: Rect[];
   /** text only: first-line baseline y. */
   baseline: number | null;
@@ -56,9 +59,13 @@ export interface Box {
   layer: number;
   tag: string;
   role: string | null;
-  /** text px hidden by an overflow ancestor. */
+  /** text px hidden by an overflow ancestor; a scroll container's scrolling axis doesn't count. */
   clipped: { x: number; y: number } | null;
   ellipsis: boolean;
+  /** Padding box of the nearest ancestor that clips overflow; null if none. */
+  clipRect: Rect | null;
+  /** An inline box in running text, or the text inside one: placed by line wrapping, not by layout. */
+  inText: boolean;
   locator: Locator;
   /** Text boxes and text-showing form controls, only when the contrast pass ran. */
   contrast?: ContrastInfo;

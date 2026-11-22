@@ -54,6 +54,8 @@ const HORIZONTAL: Axis = {
 function groupByScope(boxes: Box[]): Box[][] {
   const groups = new Map<string, Box[]>();
   for (const b of boxes) {
+    // Where inline code or a highlighted link lands depends on where its line wraps, so it has no neighbours to line up with.
+    if (b.inText) continue;
     const k = scopeKey(b);
     const g = groups.get(k);
     if (g) g.push(b);
