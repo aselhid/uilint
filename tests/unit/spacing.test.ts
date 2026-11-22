@@ -67,3 +67,18 @@ it('measures insets inside the border, so a bottom divider is not uneven padding
   const t = box({ x: 24, y: 16, w: 100, h: 32, kind: 'text', containerId: header.id }); // top 16, bottom 16 inside the border
   expect(spacing.check(snap([header, t]), opts, 'error')).toEqual([]);
 });
+
+it('compares the gaps around headings only with other heading gaps', () => {
+  const t = (y: number, tag = 'p', h = 26) => box({ x: 0, y, w: 300, h, kind: 'text', tag });
+  // p 20 p 24 h2 20 p 20 p 24 h3 20 p 20 p: prose that sets headings apart on purpose.
+  const prose = [t(0), t(46), t(96, 'h2', 32), t(148), t(194), t(244, 'h3'), t(290), t(336)];
+  expect(spacing.check(snap(prose), opts, 'error')).toEqual([]);
+});
+
+it('still flags one heading gap off from the other heading gaps', () => {
+  const t = (y: number, tag = 'p') => box({ x: 0, y, w: 300, h: 20, kind: 'text', tag });
+  // gaps above headings: 32, 32, 30
+  const items = [t(0, 'h2'), t(40), t(92, 'h2'), t(132), t(184, 'h2'), t(224), t(274, 'h2'), t(314)];
+  const f = spacing.check(snap(items), opts, 'error');
+  expect(f).toEqual([expect.objectContaining({ check: 'gap', measured: 30, expected: 32, boxIds: [items[5].id, items[6].id] })]);
+});

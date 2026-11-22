@@ -269,7 +269,8 @@
   try {
     for (const p of order) {
       const vw = viewW(), vh = viewH();
-      const inView = p.x >= window.scrollX && p.x < window.scrollX + vw && p.y >= window.scrollY && p.y < window.scrollY + vh;
+      // Hit-testing rounds the point, so one within a pixel of the far edge counts as off-screen: keep a 1px margin.
+      const inView = p.x >= window.scrollX && p.x < window.scrollX + vw - 1 && p.y >= window.scrollY && p.y < window.scrollY + vh - 1;
       if (!inView) window.scrollTo({ left: p.x < vw ? 0 : p.x - vw / 2, top: Math.max(0, p.y - 8), behavior: 'instant' });
       p.result = probe(p);
     }

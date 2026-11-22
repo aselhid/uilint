@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Diagram viewer</title>
+<style>
+  body { margin: 0; padding: 24px; font: 16px/1.6 Arial, sans-serif; color: #111; background: #fff; }
+  /* Defects on the page behind the modal: inert while it is open, so not part of this state. */
+  .faint { color: #bbb; }
+  .wide { width: 2000px; height: 20px; background: #eee; }
+  dialog { position: fixed; inset: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: #f4f6f8; }
+  .stage { position: absolute; inset: 0; overflow: hidden; }
+  /* A zoomed diagram, larger than the screen, panned inside the clipped stage. */
+  .canvas { position: absolute; left: 20px; top: 60px; }
+  .bar { position: absolute; top: 12px; right: 12px; display: flex; gap: 4px; }
+  .bar button { height: 36px; min-width: 36px; border: 1px solid #333; background: #fff; color: #111; }
+</style></head>
+<body>
+<h1>Page behind the modal</h1>
+<p class="faint">This paragraph is too faint, but it is inert while the modal is open.</p>
+<div class="wide"></div>
+<dialog id="viewer">
+  <div class="stage"><div class="canvas"><svg width="1800" height="600" viewBox="0 0 1800 600"><rect x="10" y="10" width="1780" height="580" fill="none" stroke="#333"/><text x="40" y="60" font-size="24">Zoomed diagram larger than the screen</text></svg></div></div>
+  <div class="bar"><button>−</button><button>+</button><button>Fit</button><button>✕</button></div>
+</dialog>
+<script>document.getElementById('viewer').showModal()</script>
+</body></html>

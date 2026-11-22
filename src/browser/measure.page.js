@@ -92,6 +92,20 @@
   };
 
   const clipsContent = (cs) => cs.overflowX !== 'visible' || cs.overflowY !== 'visible';
+  const scrolls = (v) => v === 'auto' || v === 'scroll';
+
+  // With a modal dialog open, everything outside it is inert and can't be seen or used: measure only the modal.
+  // Several open modals stack in the top layer; the one hit at its own center is on top.
+  let modal = null;
+  try {
+    const open = [...document.querySelectorAll(':modal')];
+    const onTop = open.filter((m) => {
+      const r = m.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && m.contains(hit);
+    });
+    modal = onTop[onTop.length - 1] || open[open.length - 1] || null;
+  } catch (e) { /* engines without :modal */ }
 
   // ---------- walk ----------
   const entries = [];
@@ -114,6 +128,7 @@
       if (child.nodeType !== Node.ELEMENT_NODE) continue;
       const el = child;
       if (SKIP_TAGS.has(el.tagName.toUpperCase())) continue;
+      if (el.hasAttribute('inert')) continue;
       if (exclude.some((sel) => el.matches(sel))) continue;
       const cs = style(el);
       if (cs.display === 'none' || parseFloat(cs.opacity) === 0) continue;
@@ -131,15 +146,17 @@
       if (!contents && startsLayer(el, cs)) next.layer = ++ctx.layers.count;
       const kind = contents ? null : kindOf(el, cs);
       const isBox = !!kind && rect.width > 0 && rect.height > 0 && cs.visibility === 'visible';
+      // An inline box inside a block that has text of its own (inline code, a highlighted link) sits in running text.
+      const flowOwner = cs.display === 'inline' ? ctx.owner : null;
       if (isBox) {
-        entries.push({ type: 'el', el, kind, rect, container: ctx.container, layer: next.layer });
+        entries.push({ type: 'el', el, kind, rect, container: ctx.container, layer: next.layer, clip: ctx.clip, flowOwner });
         next.container = el;
       }
       const tag = el.tagName.toUpperCase();
       if (tag === 'SVG' || (kind === 'media')) continue;
       const ownsText = !contents && (isBox || cs.display !== 'inline');
       if (ownsText) {
-        const slot = { type: 'text', owner: el, nodes: [], container: isBox ? el : ctx.container, layer: next.layer, clipEl: null };
+        const slot = { type: 'text', owner: el, nodes: [], container: isBox ? el : ctx.container, layer: next.layer, clipEl: null, flowOwner };
         entries.push(slot);
         textSlot.set(el, slot);
         next.owner = el;
@@ -153,7 +170,9 @@
       if (el.shadowRoot) walk(el.shadowRoot, next);
     }
   };
-  walk(document.body || document.documentElement, { container: null, layer: 0, owner: null, clip: null, clipEl: null, layers: { count: 0 } });
+  walk(modal ? { childNodes: [modal] } : document.body || document.documentElement,
+    { container: null, layer: 0, owner: null, clip: null, clipEl: null, layers: { count: 0 } });
+  const inText = (e) => !!e.flowOwner && !!textSlot.get(e.flowOwner) && textSlot.get(e.flowOwner).nodes.length > 0;
 
   // ---------- locators ----------
   const goodClass = (c) => /^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(c) && !/^(css|sc|jsx|emotion|tw)-/.test(c) && !/\d/.test(c);
@@ -245,6 +264,7 @@
     return m.fontBoundingBoxAscent || parseFloat(cs.fontSize) * 0.8;
   };
 
+  // One rect per run of text: a line, split where something the box doesn't own (inline code, an icon) interrupts it.
   const lineRects = (nodes) => {
     const rects = [];
     for (const n of nodes) {
@@ -256,11 +276,21 @@
     const lines = [];
     for (const r of rects) {
       const last = lines[lines.length - 1];
-      const overlap = last ? Math.min(last.y + last.height, r.y + r.height) - Math.max(last.y, r.y) : 0;
-      if (last && overlap > Math.min(last.height, r.height) / 2) lines[lines.length - 1] = union([last, r]);
-      else lines.push(r);
+      const overlap = last ? Math.min(last.rect.y + last.rect.height, r.y + r.height) - Math.max(last.rect.y, r.y) : 0;
+      if (last && overlap > Math.min(last.rect.height, r.height) / 2) { last.rect = union([last.rect, r]); last.parts.push(r); }
+      else lines.push({ rect: r, parts: [r] });
     }
-    return lines;
+    const runs = [];
+    for (const line of lines) {
+      line.parts.sort((a, b) => a.x - b.x);
+      let run = null;
+      for (const r of line.parts) {
+        if (run && r.x <= run.x + run.width + 1) run = union([run, r]);
+        else { if (run) runs.push(run); run = r; }
+      }
+      runs.push(run);
+    }
+    return runs;
   };
 
   // ---------- build boxes ----------
@@ -277,6 +307,7 @@
         height: Math.max(0, e.rect.height - bw('Top') - bw('Bottom')),
       };
       built.push({ e, rect: e.rect, layoutRect: e.rect, innerRect: inner, lines: [], baseline: null, textAlign: null, clipped: null, ellipsis: false,
+        clipRect: e.clip, inText: inText(e),
         tag: e.el.tagName.toLowerCase(), text: snippet(e.el.innerText || e.el.getAttribute('aria-label') || e.el.getAttribute('alt') || e.el.getAttribute('placeholder') || e.el.value) });
       continue;
     }
@@ -295,7 +326,11 @@
     if (clipBox) {
       const hx = Math.max(0, rect.x + rect.width - (clipBox.x + clipBox.width)) + Math.max(0, clipBox.x - rect.x);
       const hy = Math.max(0, rect.y + rect.height - (clipBox.y + clipBox.height)) + Math.max(0, clipBox.y - rect.y);
-      if (!ellipsis && (hx > 0.5 || hy > 0.5)) clipped = { x: r2(hx), y: r2(hy) };
+      // A scroll container (overflow: auto / scroll) lets the reader scroll to what it cuts off on that axis.
+      const ccs = style(e.clipEl);
+      const lostX = scrolls(ccs.overflowX) ? 0 : hx;
+      const lostY = scrolls(ccs.overflowY) ? 0 : hy;
+      if (!ellipsis && (lostX > 0.5 || lostY > 0.5)) clipped = { x: r2(lostX), y: r2(lostY) };
       // Measure only what is visible, so hidden text can't overlap or misalign with its neighbours.
       if (hx > 0 || hy > 0) {
         const cut = (r) => {
@@ -314,7 +349,7 @@
     const above = Math.floor(leading / 2);
     const layoutRect = { x: rect.x, y: rect.y - above, width: rect.width, height: rect.height + leading };
     built.push({
-      e, rect, layoutRect, innerRect: rect, lines, baseline, textAlign: resolveAlign(cs), clipped, ellipsis,
+      e, rect, layoutRect, innerRect: rect, lines, baseline, textAlign: resolveAlign(cs), clipped, ellipsis, clipRect: clipBox, inText: inText(e),
       tag: e.owner.tagName.toLowerCase(), text: snippet(e.nodes.map((n) => n.data).join(' ')),
     });
   }
@@ -340,6 +375,8 @@
       role: el.getAttribute('role'),
       clipped: b.clipped,
       ellipsis: b.ellipsis,
+      clipRect: b.clipRect ? round(b.clipRect) : null,
+      inText: b.inText,
       locator: { selector: selectorFor(el), text: b.text, components: react.components, source: react.source },
     };
   });
@@ -351,5 +388,6 @@
       : { el: b.e.owner, nodes: b.e.nodes, clip: b.e.clipEl ? paddingBox(b.e.clipEl) : null });
   }
 
-  return { boxes, scrollWidth: docEl.scrollWidth, clientWidth: docEl.clientWidth };
+  // Behind a modal the page is inert; its sideways scroll is the page's own finding, reported without the modal.
+  return { boxes, scrollWidth: modal ? docEl.clientWidth : docEl.scrollWidth, clientWidth: docEl.clientWidth };
 }

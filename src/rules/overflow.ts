@@ -1,6 +1,6 @@
 import { isWithin } from '../geometry/relations.js';
 import { fmtPx, round2 } from '../near-miss.js';
-import type { Box, Finding, Rule, Severity } from '../types.js';
+import type { Box, Finding, Rect, Rule, Severity } from '../types.js';
 import { capSeverity } from './cap.js';
 
 export interface OverflowOptions {
@@ -11,6 +11,27 @@ export interface OverflowOptions {
   spillDecorative: Severity;
   hscroll: Severity;
   overlap: Severity;
+}
+
+function intersect(a: Rect, b: Rect): Rect | null {
+  const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y);
+  const w = Math.min(a.x + a.width, b.x + b.width) - x, h = Math.min(a.y + a.height, b.y + b.height) - y;
+  return w > 0 && h > 0 ? { x, y, width: w, height: h } : null;
+}
+
+/** What actually paints: text as its runs of glyphs, so a paragraph never "overlaps" the inline code it wraps around. */
+const pieces = (b: Box): Rect[] => (b.kind === 'text' && b.lines.length ? b.lines : [b.rect]);
+
+/** The largest overlap between any piece of `a` and any piece of `b`. */
+function overlapOf(a: Box, b: Box): { w: number; h: number } | null {
+  let best: { w: number; h: number } | null = null;
+  for (const p of pieces(a)) {
+    for (const q of pieces(b)) {
+      const r = intersect(p, q);
+      if (r && (!best || r.width * r.height > best.w * best.h)) best = { w: round2(r.width), h: round2(r.height) };
+    }
+  }
+  return best;
 }
 
 export const overflow: Rule<OverflowOptions> = {
@@ -41,11 +62,14 @@ export const overflow: Rule<OverflowOptions> = {
       // Clipped or truncated text already got its own finding; its full text rect always pokes out.
       if (b.containerId !== null && !b.clipped && !b.ellipsis) {
         const c = byId.get(b.containerId);
-        if (c) {
-          const r = b.rect, cr = c.rect;
+        const decorative = b.kind === 'media' || b.kind === 'surface';
+        // An image cropped by overflow: hidden (a zoomed canvas, a cover photo) only spills as far as it is visible.
+        // Controls keep their full box: a button cut off by its card is a defect either way.
+        const r = decorative && b.clipRect ? intersect(b.rect, b.clipRect) : b.rect;
+        if (c && r) {
+          const cr = c.rect;
           const out = round2(Math.max(cr.x - r.x, r.x + r.width - (cr.x + cr.width), cr.y - r.y, r.y + r.height - (cr.y + cr.height)));
           if (out > o.tolerance) {
-            const decorative = b.kind === 'media' || b.kind === 'surface';
             add(decorative ? o.spillDecorative : o.spill, {
               check: 'spill', message: `extends ${fmtPx(out)} outside its container`,
               measured: out, expected: 0, boxIds: [b.id], peerIds: [c.id],
@@ -78,9 +102,8 @@ export const overflow: Rule<OverflowOptions> = {
         const b = solid[j];
         if (b.rect.x >= a.rect.x + a.rect.width) break;
         if (a.layer !== b.layer || isWithin(a, b.id, byId) || isWithin(b, a.id, byId)) continue;
-        const w = round2(Math.min(a.rect.x + a.rect.width, b.rect.x + b.rect.width) - Math.max(a.rect.x, b.rect.x));
-        const h = round2(Math.min(a.rect.y + a.rect.height, b.rect.y + b.rect.height) - Math.max(a.rect.y, b.rect.y));
-        if (w > o.tolerance && h > o.tolerance) pairs.push(a.id < b.id ? [a, b, w, h] : [b, a, w, h]);
+        const hit = overlapOf(a, b);
+        if (hit && hit.w > o.tolerance && hit.h > o.tolerance) pairs.push(a.id < b.id ? [a, b, hit.w, hit.h] : [b, a, hit.w, hit.h]);
       }
     }
     pairs.sort((p, q) => p[0].id - q[0].id || p[1].id - q[1].id);

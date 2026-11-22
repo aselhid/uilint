@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Blog post</title>
+<style>
+  body { margin: 0; font: 16px/1.6 Arial, sans-serif; color: #111; background: #fff; }
+  article { max-width: 640px; margin: 32px auto; padding: 0 16px; }
+  h1 { margin: 0 0 20px; font-size: 32px; line-height: 1.25; }
+  p, ul { margin: 0 0 20px; }
+  /* Headings get more room above than paragraphs get between them, on purpose. */
+  h2, h3 { margin: 23px 0 20px; line-height: 1.25; }
+  /* Inline code with margin and padding, wrapping inside list items. */
+  code { white-space: pre-wrap; word-break: break-word; margin: 0.2rem; padding: 0.15em 0.3em; border-radius: 0.2em; background: #eee; font-size: .875em; }
+  /* A code block that scrolls sideways instead of wrapping. */
+  pre { overflow-x: auto; margin: 0 0 20px; padding: 12px; background: #f4f4f4; }
+  pre code { margin: 0; padding: 0; background: none; white-space: pre; font-size: 14px; }
+</style></head>
+<body>
+<article>
+  <h1>Typed frames over a local socket</h1>
+  <p>Notes from wiring a browser tool to a local server, and what broke along the way.</p>
+  <p>The short version: share the schemas, check the origin, and keep the catalog hashed.</p>
+  <h2>The protocol</h2>
+  <ul>
+    <li>Both server and browser share the same Zod schemas and wire frames (<code>session.hello</code>, <code>session.ready</code>, <code>tool.request</code>, <code>tool.progress</code>, <code>tool.cancel</code>, <code>tool.response</code>), plus a hash of the tool catalog so version mismatches fail right away.</li>
+    <li>Even on <code>127.0.0.1</code>, you cannot leave the door open. The WebSocket upgrade checks an <code>Origin</code> allow-list so random tabs cannot hijack your session.</li>
+  </ul>
+  <p>Every frame is validated on both ends before anything acts on it.</p>
+  <h3>The places query</h3>
+  <p>The map view asks for nearby places with one join against the spatial index:</p>
+  <pre><code>SELECT p.id, p.label, p.is_public, p.lat, p.lng FROM places p JOIN places_rtree rp ON rp.id = p.rowid;</code></pre>
+  <p>It returns in a few milliseconds even with a large table.</p>
+  <h2>What is left</h2>
+  <p>Reconnects still drop the in-flight request.</p>
+  <p>That is the next thing to fix.</p>
+</article>
+</body></html>

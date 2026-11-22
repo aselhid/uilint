@@ -33,6 +33,7 @@ const BAD: [file: string, rule: string, checks: string[], targets: string[], vie
   ['overflow-clip.html', 'overflow', ['clipped'], ['Enterprise annual']],
   ['overflow-hscroll.html', 'overflow', ['hscroll'], ['div.banner'], [375]],
   ['overflow-overlap.html', 'overflow', ['overlap'], ['Pending review', 'Approved']],
+  ['overflow-overlap-child.html', 'overflow', ['overlap'], ['Shipping address', 'Default']],
   ['overflow-spill.html', 'overflow', ['spill'], ['button.cta']],
   ['contrast-low.html', 'contrast', ['ratio'], ['Updated 3 days ago']],
   ['contrast-placeholder.html', 'contrast', ['placeholder'], ['input.search']],
@@ -75,6 +76,18 @@ describe(`contrast (${driver})`, () => {
     const r = await run({ urls: [`${server.url}/bad/contrast-low.html`], driver, json: true, max: 50, updateBaseline: false, cwd: dir });
     expect(r.exitCode, r.stdout + r.stderr).toBe(0);
     expect(JSON.parse(r.stdout).reports[0].violations).toEqual([]);
+  });
+});
+
+describe(`blog regressions (${driver})`, () => {
+  it('reports nothing at all on a post with inline code, a scrolling code block and spaced-out headings', async () => {
+    const { violations, stdout } = await lint('clean/clean-blog-post.html');
+    expect(violations, stdout).toEqual([]);
+  });
+
+  it('lints only the open modal, not the inert page behind it or its clipped, pannable canvas', async () => {
+    const { violations, stdout } = await lint('clean/clean-modal-viewer.html');
+    expect(violations, stdout).toEqual([]);
   });
 });
 

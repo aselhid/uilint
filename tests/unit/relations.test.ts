@@ -80,3 +80,11 @@ describe('performance', () => {
     expect(performance.now() - t).toBeLessThan(2000);
   });
 });
+
+describe('inline boxes in running text', () => {
+  it('are never paired', () => {
+    const a = box({ x: 0, y: 0, w: 100, h: 20 }), code = box({ x: 3, y: 30, w: 60, h: 20, inText: true }), b = box({ x: 0, y: 60, w: 100, h: 20 });
+    expect(stackedPairs([a, code, b], { maxGap: 48 }).map((p) => [p.a.id, p.b.id])).toEqual([[a.id, b.id]]);
+    expect(rowPairs([box({ x: 0, y: 0, w: 40, h: 20, inText: true }), box({ x: 50, y: 0, w: 40, h: 20 })], { maxGap: 48 })).toEqual([]);
+  });
+});

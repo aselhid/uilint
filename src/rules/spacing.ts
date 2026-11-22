@@ -12,6 +12,8 @@ export interface SpacingOptions {
   scale?: number;
 }
 
+const isHeading = (b: Box) => /^h[1-6]$/.test(b.tag) || b.role === 'heading';
+
 const offScale = (v: number, scale: number) => {
   const r = v % scale;
   return Math.min(r, scale - r) > 0.5;
@@ -37,16 +39,27 @@ export const spacing: Rule<SpacingOptions> = {
         links.push({ a: chain[i], b: chain[i + 1], gap: gapOf.get(`${chain[i].id}>${chain[i + 1].id}`)! });
       }
       const peersOf = (p: Pair) => chain.filter((c) => c !== p.a && c !== p.b).map((c) => c.id);
-      if (links.length >= 2) {
-        const dom = dominant(links.map((l) => l.gap));
-        if (dom) {
-          for (const l of links) {
-            if (!isNearMiss(l.gap, dom.value, window)) continue;
-            push({
-              check: 'gap', message: `gap ${fmtPx(l.gap)}, siblings use ${fmtPx(dom.value)}`,
-              measured: l.gap, expected: dom.value, boxIds: [l.a.id, l.b.id], peerIds: peersOf(l),
-            });
-          }
+      // The space above and below a heading is its own token, set apart on purpose from the rhythm between paragraphs,
+      // so heading gaps are compared only with other heading gaps.
+      const byRole = new Map<string, Pair[]>();
+      for (const l of links) {
+        const role = isHeading(l.b) ? 'above-heading' : isHeading(l.a) ? 'below-heading' : 'body';
+        const list = byRole.get(role);
+        if (list) list.push(l);
+        else byRole.set(role, [l]);
+      }
+      for (const group of byRole.values()) {
+        if (group.length < 2) continue;
+        const dom = dominant(group.map((l) => l.gap));
+        if (!dom) continue;
+        const members = new Set(group.flatMap((l) => [l.a, l.b]));
+        for (const l of group) {
+          if (!isNearMiss(l.gap, dom.value, window)) continue;
+          push({
+            check: 'gap', message: `gap ${fmtPx(l.gap)}, siblings use ${fmtPx(dom.value)}`,
+            measured: l.gap, expected: dom.value, boxIds: [l.a.id, l.b.id],
+            peerIds: chain.filter((c) => members.has(c) && c !== l.a && c !== l.b).map((c) => c.id),
+          });
         }
       }
       if (o.scale) {
